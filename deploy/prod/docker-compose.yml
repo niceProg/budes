@@ -6,7 +6,11 @@ services:
   app-db:
     image: postgres:18.4
     restart: unless-stopped
+    # Set timezone server ke WIB (GUC diterapkan tiap start, tak bergantung initdb).
+    command: ["postgres", "-c", "timezone=Asia/Jakarta", "-c", "log_timezone=Asia/Jakarta"]
     environment:
+      TZ: Asia/Jakarta
+      PGTZ: Asia/Jakarta
       POSTGRES_USER: budes
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?wajib di prod.env}
       POSTGRES_DB: budes_app

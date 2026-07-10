@@ -1,16 +1,14 @@
-# Reverse proxy Budes — satu origin. Ganti `:80` jadi domain (mis. budes.example.com)
-# untuk HTTPS otomatis (Caddy urus TLS Let's Encrypt sendiri).
-:80 {
+# Reverse proxy Budes — dua domain, HTTPS otomatis (Let's Encrypt via Caddy).
+# Syarat: DNS kedua domain -> IP VM, port 80 & 443 terbuka di firewall.
+
+# Frontend (Nuxt SSR)
+budes.yum-dev.com {
 	encode gzip
+	reverse_proxy frontend:8080
+}
 
-	# API Go (+ /health) → service api
-	@api path /api/* /health
-	handle @api {
-		reverse_proxy api:8080
-	}
-
-	# Sisanya → frontend Nuxt (SSR)
-	handle {
-		reverse_proxy frontend:8080
-	}
+# Backend (Go REST). Endpoint: https://api-budes.yum-dev.com/api/... dan /health
+api-budes.yum-dev.com {
+	encode gzip
+	reverse_proxy api:8080
 }
