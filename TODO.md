@@ -146,7 +146,7 @@
 - [x] **Broadcast Kebutuhan**: demand OPEN (DP dibayar) → "🛒 Kebutuhan Baru" ke grup
 - [x] **Update Status**: verifikasi terima (dana cair) → "✅ Transaksi Selesai"
 - [x] `POST /api/notify/test` (admin) untuk uji manual
-- [~] **Uji live tertunda**: `WA_SESSION` yang benar belum diketahui (gateway 404 "Session not found" untuk `default`)
+- [x] **Uji live SUKSES** (session `u1-kdmp`): manual + broadcast "Kebutuhan Baru" saat demand OPEN → pesan masuk grup (HTTP 200, status SENT)
 - [ ] Event tambahan (sanggupan baru, listing baru, hasil KYC) + broadcast per-user (pakai `users.phone`)
 - [ ] **Peringatan Tenggat**: pengingat 24 jam sebelum batas 🟡
 
