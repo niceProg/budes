@@ -5,9 +5,12 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
+    // Base URL API untuk render sisi-server (SSR) — internal cepat, mis. http://api:8080.
+    // Kosong = pakai apiBase publik. Set via env NUXT_API_BASE_SERVER.
+    apiBaseServer: '',
     public: {
-      // Kosong = pakai data tiruan (mock-first). Isi dengan URL backend Go
-      // (mis. http://localhost:8080) saat siap menyambung API asli.
+      // Base URL API untuk klien (browser). Kosong = pakai data tiruan (mock-first).
+      // Set via env NUXT_PUBLIC_API_BASE (mis. https://api-budes.yum-dev.com).
       apiBase: '',
     },
   },

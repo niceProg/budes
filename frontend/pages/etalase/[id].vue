@@ -4,6 +4,7 @@ import { decorateListing } from '~/utils/decorate'
 
 const app = useApp()
 const route = useRoute()
+onMounted(() => app.loadListing(route.params.id as string))
 const raw = computed(() => app.listings.find((l) => l.id === route.params.id) || app.listings[0])
 const lst = computed(() => decorateListing(raw.value))
 </script>

@@ -65,6 +65,13 @@ const USERS: Record<string, User> = {
   darto: { id: 'darto', name: 'Pak Darto', role: 'ADMIN_KOPERASI', ver: 'VERIFIED' },
 }
 
+// Kredensial akun demo di backend (di-seed oleh deploy/seed-demo.sh).
+const DEMO_CREDS: Record<'budi' | 'wati' | 'darto', { email: string; pass: string }> = {
+  budi: { email: 'budi.demo@budes.id', pass: 'budes123' },
+  wati: { email: 'wati.demo@budes.id', pass: 'budes123' },
+  darto: { email: 'admin.demo@budes.id', pass: 'budes123' },
+}
+
 export const KOPERASI = [
   'KDMP Desa Sukamaju',
   'KDMP Desa Mekarsari',
@@ -88,10 +95,37 @@ function routeFor(screen: string, id?: string): string {
   }
 }
 
+// Backend user { ..., verification_status } -> User frontend.
+function mapUser(u: any): User {
+  return {
+    id: u.id,
+    name: u.name,
+    role: u.role as Role,
+    ver: u.verification_status === 'VERIFIED' ? 'VERIFIED' : 'PENDING',
+  }
+}
+
+// Pesan error dari FetchError backend ({ error: "..." }) atau umum.
+function errMsg(e: any, fallback = 'Terjadi kesalahan. Coba lagi.'): string {
+  return e?.data?.error || e?.data?.message || e?.message || fallback
+}
+
+// Gabungkan baris (by id) ke array target tanpa duplikat (item milik user, mis. DRAFT).
+function mergeById<T extends { id: string }>(target: T[], extra: T[] | undefined) {
+  if (!extra) return
+  for (const it of extra) {
+    const i = target.findIndex((x) => x.id === it.id)
+    if (i >= 0) target[i] = it
+    else target.unshift(it)
+  }
+}
+
 export const useApp = defineStore('app', {
   state: () => ({
     user: null as User | null,
     filter: 'AKTIF' as 'AKTIF' | 'OPEN' | 'PARTIAL' | 'SEMUA',
+    booted: false,
+    // Data awal = contoh (dipakai saat mode mock / apiBase kosong). Ditimpa boot() saat API aktif.
     demands: [
       { id: 'd1', owner: 'budi', item_name: 'Beras Medium IR64', satuan: 'kg', total: 500, fulfilled: 320, harga: 12500, deadline: '2026-07-25', status: 'PARTIAL', dp: 'PAID', method: 'TRANSFER',
         pledges: [{ name: 'Wati Suharti', q: 120, d: 120, st: 'DELIVERED' }, { name: 'Slamet Riyadi', q: 200, d: 80, st: 'CONFIRMED' }],
@@ -158,6 +192,7 @@ export const useApp = defineStore('app', {
     loginEmail: '',
     loginPass: '',
     authErr: '',
+    busy: false,
     reg: { name: '', email: '', pass: '', phone: '', role: 'WARGA' as Role, koperasi: KOPERASI[0], anggota: '' },
     buat: { item: '', satuan: 'kg', qty: '', harga: '', deadline: '' },
     buatStep: 1 as 1 | 2,
@@ -183,6 +218,71 @@ export const useApp = defineStore('app', {
   },
 
   actions: {
+    // ================= boot / hydrate (API) =================
+    // Dipanggil plugin boot (SSR + klien). Bila API aktif: muat data nyata.
+    async boot() {
+      const api = useApi()
+      if (!api.enabled) { this.booted = true; return } // mode mock: biarkan data contoh
+      try {
+        await this.hydratePublic()
+        if (api.token.value) await this.hydrateUser()
+      } catch (e) {
+        // Diamkan saat SSR agar halaman tetap render; klien bisa retry.
+      }
+      this.booted = true
+    },
+    async hydratePublic() {
+      const api = useApi()
+      const [demands, listings] = await Promise.all([
+        api.data<Demand[]>('/api/demands?limit=100'),
+        api.data<Listing[]>('/api/listings?limit=100'),
+      ])
+      this.demands = demands || []
+      this.listings = listings || []
+    },
+    async hydrateUser() {
+      const api = useApi()
+      if (!api.token.value) return
+      try {
+        this.user = mapUser(await api.data('/api/me'))
+      } catch {
+        api.token.value = null
+        this.user = null
+        return
+      }
+      const r: any = await api.data('/api/me/riwayat').catch(() => ({}))
+      this.pledges = r.pledges || []
+      this.orders = r.orders || []
+      this.txns = r.transactions || []
+      mergeById(this.demands, r.demands)
+      mergeById(this.listings, r.listings)
+    },
+    async loadDemand(id: string) {
+      const api = useApi()
+      if (!api.enabled || !id) return
+      try {
+        const d = await api.data<Demand>(`/api/demands/${id}`)
+        if (d) mergeById(this.demands, [d])
+      } catch { /* biarkan pakai data list */ }
+    },
+    async loadListing(id: string) {
+      const api = useApi()
+      if (!api.enabled || !id) return
+      try {
+        const l = await api.data<Listing>(`/api/listings/${id}`)
+        if (l) mergeById(this.listings, [l])
+      } catch { /* biarkan */ }
+    },
+    // Segarkan slice milik user setelah mutasi.
+    async refreshUser() {
+      const api = useApi()
+      if (!api.enabled || !api.token.value) return
+      const r: any = await api.data('/api/me/riwayat').catch(() => ({}))
+      this.pledges = r.pledges || this.pledges
+      this.orders = r.orders || this.orders
+      this.txns = r.transactions || this.txns
+    },
+
     showToast(msg: string) {
       clearTimeout(toastTimer)
       this.toast = msg
@@ -209,7 +309,7 @@ export const useApp = defineStore('app', {
       this.listEditErr = ''
       this.modal = 'listingEdit'
     },
-    saveListing() {
+    async saveListing() {
       const l = this.listings.find((x) => x.id === this.activeListingId)
       if (!l) return
       const avail = parseFloat(this.listEdit.avail)
@@ -222,16 +322,29 @@ export const useApp = defineStore('app', {
         this.listEditErr = `Stok tidak boleh kurang dari yang sudah terjual (${l.sold}).`
         return
       }
+      const api = useApi()
+      if (api.enabled) {
+        // Backend hanya mendukung ubah status listing (bukan stok/harga).
+        try {
+          await api.req(`/api/listings/${l.id}`, { method: 'PUT', body: { status: this.listEdit.status } })
+        } catch (e) { this.listEditErr = errMsg(e); return }
+      }
       l.avail = avail
       l.harga = harga
       l.status = this.listEdit.status
       this.closeModal()
       this.showToast('Listing etalase diperbarui.')
     },
-    deleteListing(id: string) {
+    async deleteListing(id: string) {
       const l = this.listings.find((x) => x.id === id)
       if (!l) return
       if (import.meta.client && !window.confirm(`Hapus "${l.item_name}" dari etalase?`)) return
+      const api = useApi()
+      if (api.enabled) {
+        try {
+          await api.req(`/api/listings/${id}`, { method: 'PUT', body: { status: 'INACTIVE' } })
+        } catch (e) { this.showToast(errMsg(e)); return }
+      }
       this.listings = this.listings.filter((x) => x.id !== id)
       this.showToast('Listing dihapus dari etalase.')
     },
@@ -284,25 +397,53 @@ export const useApp = defineStore('app', {
         navigateTo(routeFor('pasar'))
       }
     },
-    doLogout() {
+    async doLogout() {
+      const api = useApi()
+      if (api.enabled) {
+        try { await api.req('/api/auth/logout', { method: 'POST' }) } catch { /* stateless */ }
+        api.token.value = null
+      }
       this.user = null
+      this.pledges = []
+      this.orders = []
+      this.txns = []
       navigateTo(routeFor('pasar'))
       this.showToast('Kamu telah keluar. Sampai jumpa!')
     },
-    submitLogin() {
-      const e = this.loginEmail.toLowerCase()
+    async submitLogin() {
+      const e = this.loginEmail.trim().toLowerCase()
       if (!e || !this.loginPass) {
         this.authErr = 'Isi email dan kata sandi dulu, ya.'
         return
       }
-      let user: User
-      if (e.includes('budi')) user = USERS.budi
-      else if (e.includes('wati')) user = USERS.wati
-      else if (e.includes('darto') || e.includes('koperasi')) user = USERS.darto
-      else user = { id: 'baru', name: e.split('@')[0], role: 'BUYER', ver: 'PENDING' }
-      this.login(user)
+      const api = useApi()
+      if (!api.enabled) {
+        // mode mock
+        let user: User
+        if (e.includes('budi')) user = USERS.budi
+        else if (e.includes('wati')) user = USERS.wati
+        else if (e.includes('darto') || e.includes('koperasi')) user = USERS.darto
+        else user = { id: 'baru', name: e.split('@')[0], role: 'BUYER', ver: 'PENDING' }
+        this.login(user)
+        return
+      }
+      this.busy = true
+      try {
+        const res: any = await api.req('/api/auth/login', {
+          method: 'POST',
+          body: { email: e, password: this.loginPass },
+        })
+        api.token.value = res.token
+        const user = mapUser(res.data)
+        await this.hydrateUser()
+        this.login(user)
+      } catch (err) {
+        this.authErr = errMsg(err, 'Email atau kata sandi salah.')
+      } finally {
+        this.busy = false
+      }
     },
-    submitReg() {
+    async submitReg() {
       const r = this.reg
       if (!r.name || !r.email) {
         this.authErr = 'Nama dan email wajib diisi.'
@@ -312,12 +453,42 @@ export const useApp = defineStore('app', {
         this.authErr = 'Kata sandi minimal 6 karakter.'
         return
       }
-      const user: User = { id: 'baru', name: r.name, role: r.role, ver: 'PENDING' }
-      this.showToast('Akun dibuat! Status verifikasi: Menunggu.')
-      this.login(user)
+      const api = useApi()
+      if (!api.enabled) {
+        const user: User = { id: 'baru', name: r.name, role: r.role, ver: 'PENDING' }
+        this.showToast('Akun dibuat! Status verifikasi: Menunggu.')
+        this.login(user)
+        return
+      }
+      this.busy = true
+      try {
+        const res: any = await api.req('/api/auth/register', {
+          method: 'POST',
+          body: {
+            name: r.name,
+            email: r.email.trim().toLowerCase(),
+            password: r.pass,
+            phone: r.phone || null,
+            role: r.role,
+          },
+        })
+        api.token.value = res.token
+        const user = mapUser(res.data)
+        this.showToast('Akun dibuat! Status verifikasi: Menunggu.')
+        await this.hydrateUser()
+        this.login(user)
+      } catch (err) {
+        this.authErr = errMsg(err, 'Pendaftaran gagal.')
+      } finally {
+        this.busy = false
+      }
     },
-    demo(kind: 'budi' | 'wati' | 'darto') {
-      this.login(USERS[kind])
+    async demo(kind: 'budi' | 'wati' | 'darto') {
+      const api = useApi()
+      if (!api.enabled) { this.login(USERS[kind]); return }
+      this.loginEmail = DEMO_CREDS[kind].email
+      this.loginPass = DEMO_CREDS[kind].pass
+      await this.submitLogin()
     },
 
     // ---- gerbang aksi (auth-gate) ----
@@ -369,7 +540,7 @@ export const useApp = defineStore('app', {
     },
 
     // ---- pledge / order ----
-    submitPledge(demandId: string) {
+    async submitPledge(demandId: string) {
       const d = this.demands.find((x) => x.id === demandId)
       if (!d) return
       const qty = parseFloat(this.pledgeQty) || 0
@@ -379,19 +550,33 @@ export const useApp = defineStore('app', {
       }
       const sisa = d.total - d.fulfilled
       if (qty > sisa) {
-        this.modErr = `Melebihi sisa kebutuhan (${fmtN(sisa)} ${d.satuan}). Server akan menolak permintaan ini (409).`
+        this.modErr = `Melebihi sisa kebutuhan (${fmtN(sisa)} ${d.satuan}).`
         return
       }
-      const u = this.user!
-      const nf = d.fulfilled + qty
-      d.fulfilled = nf
-      d.status = nf >= d.total ? 'FULFILLED' : 'PARTIAL'
-      d.pledges.push({ name: u.name, q: qty, d: 0, st: 'PLEDGED' })
-      this.pledges.push({ id: 'p' + Date.now(), owner: u.id, demandId: d.id, item: d.item_name, qty, satuan: d.satuan, status: 'PLEDGED' })
+      const api = useApi()
+      if (api.enabled) {
+        this.busy = true
+        try {
+          const body: any = { qty_pledged: qty }
+          if (this.pledgePrice) body.price_per_item = parseFloat(this.pledgePrice)
+          await api.req(`/api/demands/${demandId}/pledges`, { method: 'POST', body })
+          await Promise.all([this.loadDemand(demandId), this.refreshUser()])
+        } catch (e) {
+          this.modErr = errMsg(e)
+          return
+        } finally { this.busy = false }
+      } else {
+        const u = this.user!
+        const nf = d.fulfilled + qty
+        d.fulfilled = nf
+        d.status = nf >= d.total ? 'FULFILLED' : 'PARTIAL'
+        d.pledges.push({ name: u.name, q: qty, d: 0, st: 'PLEDGED' })
+        this.pledges.push({ id: 'p' + Date.now(), owner: u.id, demandId: d.id, item: d.item_name, qty, satuan: d.satuan, status: 'PLEDGED' })
+      }
       this.closeModal()
       this.showToast('Kesanggupan terkirim — terima kasih sudah bergotong royong!')
     },
-    submitOrder(listingId: string) {
+    async submitOrder(listingId: string) {
       const l = this.listings.find((x) => x.id === listingId)
       if (!l) return
       const qty = parseFloat(this.orderQty) || 0
@@ -401,18 +586,30 @@ export const useApp = defineStore('app', {
       }
       const stok = l.avail - l.sold
       if (qty > stok) {
-        this.modErr = `Melebihi stok tersedia (${fmtN(stok)} ${l.satuan}). Server akan menolak pesanan ini (409).`
+        this.modErr = `Melebihi stok tersedia (${fmtN(stok)} ${l.satuan}).`
         return
       }
-      const u = this.user!
-      l.sold += qty
-      this.orders.push({ id: 'o' + Date.now(), owner: u.id, listingId: l.id, item: l.item_name, qty, satuan: l.satuan, harga: l.harga, status: 'BARU' })
+      const api = useApi()
+      if (api.enabled) {
+        this.busy = true
+        try {
+          await api.req('/api/orders', { method: 'POST', body: { listing_id: listingId, qty_ordered: qty } })
+          await Promise.all([this.loadListing(listingId), this.refreshUser()])
+        } catch (e) {
+          this.modErr = errMsg(e)
+          return
+        } finally { this.busy = false }
+      } else {
+        const u = this.user!
+        l.sold += qty
+        this.orders.push({ id: 'o' + Date.now(), owner: u.id, listingId: l.id, item: l.item_name, qty, satuan: l.satuan, harga: l.harga, status: 'BARU' })
+      }
       this.closeModal()
       this.showToast(`Pesanan dibuat! Harga dikunci di ${fmtRp(l.harga)}/${l.satuan}.`)
     },
 
     // ---- buat permintaan ----
-    submitBuat() {
+    async submitBuat() {
       const b = this.buat
       const qty = parseFloat(b.qty) || 0
       const harga = parseFloat(b.harga) || 0
@@ -424,24 +621,58 @@ export const useApp = defineStore('app', {
         this.buatErr = 'Jumlah dan harga target harus lebih dari 0.'
         return
       }
-      const u = this.user!
-      const id = 'd' + Date.now()
-      this.demands.push({
-        id, owner: u.id, item_name: b.item.trim(), satuan: b.satuan.trim() || 'kg',
-        total: qty, fulfilled: 0, harga, deadline: b.deadline || null,
-        status: 'DRAFT', dp: 'UNPAID', method: null, pledges: [], kandidat: [],
-      })
-      this.buatDraft = id
+      const api = useApi()
+      if (api.enabled) {
+        this.busy = true
+        try {
+          const d = await api.data<Demand>('/api/demands', {
+            method: 'POST',
+            body: {
+              item_name: b.item.trim(),
+              satuan: b.satuan.trim() || 'kg',
+              total_qty: qty,
+              target_price_per_item: harga,
+              deadline: b.deadline ? new Date(b.deadline + 'T00:00:00Z').toISOString() : null,
+            },
+          })
+          mergeById(this.demands, [d])
+          this.buatDraft = d.id
+        } catch (e) {
+          this.buatErr = errMsg(e)
+          return
+        } finally { this.busy = false }
+      } else {
+        const u = this.user!
+        const id = 'd' + Date.now()
+        this.demands.push({
+          id, owner: u.id, item_name: b.item.trim(), satuan: b.satuan.trim() || 'kg',
+          total: qty, fulfilled: 0, harga, deadline: b.deadline || null,
+          status: 'DRAFT', dp: 'UNPAID', method: null, pledges: [], kandidat: [],
+        })
+        this.buatDraft = id
+      }
       this.buatStep = 2
       this.buatErr = ''
     },
-    confirmDp() {
+    async confirmDp() {
       const draftId = this.buatDraft
-      const d = this.demands.find((x) => x.id === draftId)
-      if (d) {
-        d.status = 'OPEN'
-        d.dp = 'PAID'
-        d.method = this.dpMethod
+      const api = useApi()
+      if (api.enabled && draftId) {
+        this.busy = true
+        try {
+          const d = await api.data<Demand>(`/api/demands/${draftId}/dp`, {
+            method: 'POST',
+            body: { dp_payment_method: this.dpMethod },
+          })
+          mergeById(this.demands, [d])
+        } catch (e) {
+          this.showToast(errMsg(e))
+          this.busy = false
+          return
+        } finally { this.busy = false }
+      } else {
+        const d = this.demands.find((x) => x.id === draftId)
+        if (d) { d.status = 'OPEN'; d.dp = 'PAID'; d.method = this.dpMethod }
       }
       this.buat = { item: '', satuan: 'kg', qty: '', harga: '', deadline: '' }
       this.buatStep = 1
@@ -454,7 +685,7 @@ export const useApp = defineStore('app', {
     },
 
     // ---- titip komoditas ----
-    submitTitip() {
+    async submitTitip() {
       const t = this.titip
       const qty = parseFloat(t.qty) || 0
       const harga = parseFloat(t.harga) || 0
@@ -466,12 +697,32 @@ export const useApp = defineStore('app', {
         this.titipErr = 'Stok dan harga harus lebih dari 0.'
         return
       }
-      const u = this.user!
-      this.listings.push({
-        id: 'l' + Date.now(), owner: u.id, seller: u.name, item_name: t.item.trim(),
-        satuan: t.satuan.trim() || 'kg', avail: qty, sold: 0, harga, status: 'ACTIVE',
-        tanggal: new Date().toISOString().slice(0, 10),
-      })
+      const api = useApi()
+      if (api.enabled) {
+        this.busy = true
+        try {
+          const l = await api.data<Listing>('/api/listings', {
+            method: 'POST',
+            body: {
+              item_name: t.item.trim(),
+              satuan: t.satuan.trim() || 'kg',
+              qty_available: qty,
+              price_per_item: harga,
+            },
+          })
+          mergeById(this.listings, [l])
+        } catch (e) {
+          this.titipErr = errMsg(e)
+          return
+        } finally { this.busy = false }
+      } else {
+        const u = this.user!
+        this.listings.push({
+          id: 'l' + Date.now(), owner: u.id, seller: u.name, item_name: t.item.trim(),
+          satuan: t.satuan.trim() || 'kg', avail: qty, sold: 0, harga, status: 'ACTIVE',
+          tanggal: new Date().toISOString().slice(0, 10),
+        })
+      }
       this.titip = { item: '', satuan: 'kg', qty: '', harga: '' }
       this.titipErr = ''
       navigateTo(routeFor('etalase'))
@@ -479,45 +730,87 @@ export const useApp = defineStore('app', {
     },
 
     // ---- pembatalan / verifikasi ----
-    cancelDemand(id: string) {
-      const d = this.demands.find((x) => x.id === id)
-      if (d) d.status = 'CANCELLED'
+    async cancelDemand(id: string) {
+      const api = useApi()
+      if (api.enabled) {
+        try {
+          await api.req(`/api/demands/${id}/cancel`, { method: 'POST' })
+          await this.loadDemand(id)
+        } catch (e) { this.showToast(errMsg(e)); return }
+      } else {
+        const d = this.demands.find((x) => x.id === id)
+        if (d) d.status = 'CANCELLED'
+      }
       this.showToast('Permintaan dibatalkan. Sesuai ketentuan, DP hangus (FORFEITED).')
     },
-    cancelPledge(id: string) {
-      const p = this.pledges.find((x) => x.id === id)
-      if (p) {
-        p.status = 'CANCELLED'
-        const d = this.demands.find((x) => x.id === p.demandId)
-        if (d) {
-          d.fulfilled = Math.max(0, d.fulfilled - p.qty)
-          const uname = this.user?.name ?? ''
-          const idx = d.pledges.findIndex((pl) => pl.name === uname && pl.q === p.qty && pl.st === 'PLEDGED')
-          if (idx >= 0) d.pledges.splice(idx, 1)
+    async cancelPledge(id: string) {
+      const api = useApi()
+      if (api.enabled) {
+        try {
+          await api.req(`/api/pledges/${id}`, { method: 'PUT', body: { status: 'CANCELLED' } })
+          await this.refreshUser()
+          const p = this.pledges.find((x) => x.id === id)
+          if (p) await this.loadDemand(p.demandId)
+        } catch (e) { this.showToast(errMsg(e)); return }
+      } else {
+        const p = this.pledges.find((x) => x.id === id)
+        if (p) {
+          p.status = 'CANCELLED'
+          const d = this.demands.find((x) => x.id === p.demandId)
+          if (d) {
+            d.fulfilled = Math.max(0, d.fulfilled - p.qty)
+            const uname = this.user?.name ?? ''
+            const idx = d.pledges.findIndex((pl) => pl.name === uname && pl.q === p.qty && pl.st === 'PLEDGED')
+            if (idx >= 0) d.pledges.splice(idx, 1)
+          }
         }
       }
       this.showToast('Kesanggupan dibatalkan.')
     },
-    setOrder(id: string, status: string, msg: string) {
-      const o = this.orders.find((x) => x.id === id)
-      if (o) o.status = status
+    async setOrder(id: string, status: string, msg: string) {
+      const api = useApi()
+      if (api.enabled) {
+        try {
+          await api.req(`/api/orders/${id}`, { method: 'PUT', body: { status } })
+          await this.refreshUser()
+        } catch (e) { this.showToast(errMsg(e)); return }
+      } else {
+        const o = this.orders.find((x) => x.id === id)
+        if (o) o.status = status
+      }
       this.showToast(msg)
     },
-    verifyOrder(id: string) {
-      const o = this.orders.find((x) => x.id === id)
-      if (o) {
-        o.status = 'DONE'
-        this.txns.push({ id: 't' + Date.now(), kind: 'supply', item: o.item, pihak: `— → ${this.user?.name ?? ''}`, gross: o.qty * o.harga, pay: 'UNPAID' })
+    async verifyOrder(id: string) {
+      const api = useApi()
+      if (api.enabled) {
+        try {
+          await api.req(`/api/orders/${id}/verifikasi`, { method: 'POST' })
+          await this.refreshUser()
+        } catch (e) { this.showToast(errMsg(e)); return }
+      } else {
+        const o = this.orders.find((x) => x.id === id)
+        if (o) {
+          o.status = 'DONE'
+          this.txns.push({ id: 't' + Date.now(), kind: 'supply', item: o.item, pihak: `— → ${this.user?.name ?? ''}`, gross: o.qty * o.harga, pay: 'UNPAID' })
+        }
       }
       this.showToast('Serah-terima tercatat. Komisi koperasi 5% masuk pembukuan.')
     },
-    advanceTxn(id: string, pay: string) {
+    async advanceTxn(id: string, pay: string) {
+      const api = useApi()
       const t = this.txns.find((x) => x.id === id)
-      if (t) t.pay = pay
+      if (api.enabled && t) {
+        try {
+          await api.req(`/api/transactions/${t.kind}/${id}`, { method: 'PUT', body: { payment_status: pay } })
+          await this.refreshUser()
+        } catch (e) { this.showToast(errMsg(e)); return }
+      } else if (t) {
+        t.pay = pay
+      }
       this.showToast(pay === 'PAID' ? 'Transaksi ditandai Dibayar.' : 'Transaksi ditandai Selesai.')
     },
     kycAct(id: string, ok: boolean) {
-      // Perbarui status (tidak dihapus) — bisa di-toggle terdaftar ⇄ ditolak.
+      // Panel KYC admin masih lokal (bentuk verifikasi backend berbeda) — TODO integrasi.
       const k = this.kyc.find((x) => x.id === id)
       if (k) k.status = ok ? 'VERIFIED' : 'REJECTED'
       if (this.modal === 'kycView') this.closeModal()
@@ -528,7 +821,7 @@ export const useApp = defineStore('app', {
       this.modal = 'kycView'
     },
 
-    // ---- pengaturan batas harga komoditas ----
+    // ---- pengaturan batas harga komoditas (lokal — tak ada endpoint backend) ----
     savePriceCaps() {
       this.showToast('Batas harga komoditas diperbarui.')
     },

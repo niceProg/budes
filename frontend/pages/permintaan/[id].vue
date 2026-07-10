@@ -6,6 +6,9 @@ import { PLEDGE_BADGE, badge } from '~/utils/badges'
 const app = useApp()
 const route = useRoute()
 
+// Ambil detail (termasuk daftar penyanggup) dari API saat halaman dibuka.
+onMounted(() => app.loadDemand(route.params.id as string))
+
 const raw = computed(() => app.demands.find((d) => d.id === route.params.id) || app.demands[0])
 const det = computed(() => decorateDemand(raw.value))
 const pledges = computed(() =>

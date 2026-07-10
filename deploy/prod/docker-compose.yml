@@ -51,7 +51,9 @@ services:
     environment:
       TZ: Asia/Jakarta
       PORT: "8080"
+      # Base API publik (browser) dari prod.env; base internal (SSR) default ke service api.
       NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-}
+      NUXT_API_BASE_SERVER: ${NUXT_API_BASE_SERVER:-http://api:8080}
     expose:
       - "8080"
 
