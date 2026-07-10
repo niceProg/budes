@@ -15,6 +15,7 @@ import (
 	"budes/internal/notify"
 	"budes/internal/reference"
 	"budes/internal/riwayat"
+	"budes/internal/settings"
 	"budes/internal/settlement"
 	"budes/internal/supply"
 	"budes/internal/verification"
@@ -97,6 +98,11 @@ func New(pools *db.Pools, cfg config.Config) http.Handler {
 	// --- Matching grounded (Modul G) ---
 	mH := match.NewHandler(demandRepo, refRepo)
 	mux.HandleFunc("GET /api/demands/{id}/kandidat", mH.ByDemand) // publik
+
+	// --- Pengaturan (komisi koperasi, editable admin) ---
+	setH := settings.NewHandler(settings.NewRepository(pools.App))
+	mux.Handle("GET /api/pengaturan/komisi", auth1(setH.GetKomisi))
+	mux.Handle("PUT /api/pengaturan/komisi", role(setH.SetKomisi, "ADMIN_KOPERASI"))
 
 	// --- Riwayat pengguna (Modul A) ---
 	rH := riwayat.NewHandler(demandRepo, supplyRepo, settleRepo)

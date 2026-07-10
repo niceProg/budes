@@ -13,7 +13,7 @@ func TestFee(t *testing.T) {
 		{1_000_000, 50_000, 950_000}, // 5%
 	}
 	for _, c := range cases {
-		f, net := fee(c.gross)
+		f, net := fee(c.gross, KoperasiFeePercent)
 		if f != c.wantFee || net != c.wantNet {
 			t.Errorf("fee(%.0f) = (fee=%.2f, net=%.2f), mau (fee=%.2f, net=%.2f)",
 				c.gross, f, net, c.wantFee, c.wantNet)

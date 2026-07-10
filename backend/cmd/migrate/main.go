@@ -1,19 +1,20 @@
-// Command migrate menerapkan skema App DB (idempoten: dilewati bila tabel sudah ada).
-// Jalankan: go run ./cmd/migrate
+// Command migrate menerapkan seluruh migrasi App DB (migrations/*.up.sql, berurutan).
+// Semua migrasi ditulis idempoten (IF NOT EXISTS / CREATE OR REPLACE / ON CONFLICT),
+// sehingga aman dijalankan berulang. Jalankan: go run ./cmd/migrate
 package main
 
 import (
 	"context"
 	"log"
 	"os"
+	"path/filepath"
+	"sort"
 	"time"
 
 	"budes/internal/config"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-const upFile = "migrations/000001_init_schema.up.sql"
 
 func main() {
 	cfg := config.Load()
@@ -26,23 +27,23 @@ func main() {
 	}
 	defer pool.Close()
 
-	var exists bool
-	if err := pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='koperasi')`).
-		Scan(&exists); err != nil {
-		log.Fatalf("cek skema: %v", err)
+	files, err := filepath.Glob("migrations/*.up.sql")
+	if err != nil {
+		log.Fatalf("cari migrasi: %v", err)
 	}
-	if exists {
-		log.Println("migrate: skema sudah ada — dilewati")
+	sort.Strings(files)
+	if len(files) == 0 {
+		log.Println("migrate: tidak ada file migrasi")
 		return
 	}
-
-	sql, err := os.ReadFile(upFile)
-	if err != nil {
-		log.Fatalf("baca %s: %v", upFile, err)
+	for _, f := range files {
+		sql, err := os.ReadFile(f)
+		if err != nil {
+			log.Fatalf("baca %s: %v", f, err)
+		}
+		if _, err := pool.Exec(ctx, string(sql)); err != nil {
+			log.Fatalf("terapkan %s: %v", f, err)
+		}
+		log.Printf("migrate: %s diterapkan", filepath.Base(f))
 	}
-	if _, err := pool.Exec(ctx, string(sql)); err != nil {
-		log.Fatalf("terapkan migrasi: %v", err)
-	}
-	log.Println("migrate: skema diterapkan")
 }

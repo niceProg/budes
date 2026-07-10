@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,9 +23,20 @@ type Repository struct{ pool *pgxpool.Pool }
 // NewRepository membuat repository settlement.
 func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 
-func fee(gross float64) (koperasiFee, net float64) {
-	koperasiFee = math.Round(gross*KoperasiFeePercent) / 100
+func fee(gross, pct float64) (koperasiFee, net float64) {
+	koperasiFee = math.Round(gross*pct) / 100
 	return koperasiFee, gross - koperasiFee
+}
+
+// feePercent membaca komisi koperasi terkini dari tabel settings (fallback KoperasiFeePercent).
+func (r *Repository) feePercent(ctx context.Context) float64 {
+	var v string
+	if err := r.pool.QueryRow(ctx, `SELECT value FROM settings WHERE key='koperasi_fee_percent'`).Scan(&v); err == nil {
+		if f, e := strconv.ParseFloat(v, 64); e == nil {
+			return f
+		}
+	}
+	return KoperasiFeePercent
 }
 
 // VerifyPledge (alur A): pembeli konfirmasi terima → HANDED_TO_BUYER + catat demand_transactions.
@@ -64,7 +76,7 @@ func (r *Repository) VerifyPledge(ctx context.Context, pledgeID, buyerID string,
 	}
 	price := valueOr(pPrice, dPrice)
 	gross := float64(qty) * price
-	kfee, net := fee(gross)
+	kfee, net := fee(gross, r.feePercent(ctx))
 
 	if _, err := tx.Exec(ctx, `UPDATE demand_pledges SET pledge_status='HANDED_TO_BUYER', qty_delivered=$2, user_update=$3 WHERE id=$1`,
 		pledgeID, qty, buyerID); err != nil {
@@ -106,7 +118,7 @@ func (r *Repository) VerifyOrder(ctx context.Context, orderID, buyerID string) (
 	if status != "CONFIRMED" {
 		return nil, ErrBadState
 	}
-	kfee, net := fee(total)
+	kfee, net := fee(total, r.feePercent(ctx))
 	if _, err := tx.Exec(ctx, `UPDATE orders SET order_status='HANDED_OVER', user_update=$2 WHERE id=$1`, orderID, buyerID); err != nil {
 		return nil, err
 	}
