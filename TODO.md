@@ -1,6 +1,6 @@
 # TODO — Bursa Desa (Budes) Web App
 
-> **Konsep inti:** Koperasi Desa (KDMP) sebagai **hub/perantara** dengan **dua alur** — **A) Demand (pra-pesan):** pembeli minta → warga menyanggupi (gotong royong) → setor ke koperasi → serah ke pembeli; **B) Supply (titip-jual):** warga menitipkan komoditas → koperasi posting listing → pembeli memesan. **Transaksi offline** (tunai/transfer) — sistem **mencatat** + hitung **komisi koperasi**, tanpa escrow/dompet.
+> **Konsep inti:** Koperasi Desa (KDMP) sebagai **hub/perantara** dengan **dua alur** — **A) Demand (pra-pesan):** pembeli bayar **uang muka (DP ~30%)** → warga menyanggupi (gotong royong) → setor ke koperasi → serah ke pembeli (lunasi sisa); **B) Supply (titip-jual):** warga menitipkan komoditas → koperasi posting listing → pembeli memesan. **Transaksi offline** (tunai/transfer) — sistem **mencatat** + hitung **komisi koperasi**, tanpa escrow/dompet penuh. Pengguna bisa **verifikasi identitas (KYC)** yang ditinjau ADMIN_KOPERASI.
 >
 > **Sumber kebenaran:** `PRD.md` + `erd_marketplace_koperasi.mermaid` + `features/*.md`. Dokumen ini menurunkannya jadi checklist yang bisa dieksekusi.
 
@@ -43,10 +43,12 @@
 > ⚠️ Migrasi lama `000001_init_schema` (skema escrow: users/demands/fulfillments/transactions) **sudah usang** — ganti ke skema hub-koperasi dua-alur di bawah.
 
 **App DB (writable) — migrasi (skema baru)**
+> ⚠️ Migrasi `000001` saat ini **belum** memuat `verifications`, `users.verification_status`, dan kolom DP di `demands` (tambahan dari ERD Herick) — perlu ditambahkan.
 - [ ] `koperasi` (id, nama, desa, wilayah, kontak, status, **`koperasi_ref`**)
-- [ ] `users` (koperasi_id nullable, name, phone, email, password_hash, role `BUYER/WARGA/ADMIN_KOPERASI`, status, **`anggota_ref`**)
+- [ ] `users` (koperasi_id nullable, name, phone, email, password_hash, role `BUYER/WARGA/ADMIN_KOPERASI`, status, **`anggota_ref`**, **`verification_status` UNVERIFIED/PENDING/VERIFIED/REJECTED**, **`verified_at`**)
+- [ ] `verifications` (user_id, nik, id_card_file, support_doc_file, `status` PENDING/VERIFIED/REJECTED, reviewed_by, review_note, reviewed_at)
 - [ ] `komoditas` (id, nama, kategori, satuan, **`komoditas_ref`**)
-- [ ] `demands` (buyer_id, koperasi_id, komoditas_id, item_name, satuan, total_qty, fulfilled_qty, target_price_per_item, deadline, `demand_status` OPEN/PARTIAL/CLOSED/EXPIRED)
+- [ ] `demands` (buyer_id, koperasi_id, komoditas_id, item_name, satuan, total_qty, fulfilled_qty, target_price_per_item, deadline, `demand_status` **DRAFT**/OPEN/PARTIAL/CLOSED/EXPIRED, **+ DP:** total_price, dp_percent, dp_amount, remaining_amount, dp_payment_method CASH/TRANSFER, `dp_status` UNPAID/PAID/FORFEITED/REFUNDED, dp_paid_at)
 - [ ] `demand_pledges` (demand_id, warga_id, qty_pledged, qty_delivered, price_per_item, `pledge_status` PENDING/ACCEPTED/DELIVERED_TO_KOPERASI/HANDED_TO_BUYER/CANCELLED)
 - [ ] `supply_listings` (koperasi_id, warga_id, komoditas_id, item_name, satuan, qty_available, qty_sold, price_per_item, `listing_status` DRAFT/POSTED/SOLD_OUT/CLOSED)
 - [ ] `orders` (listing_id, buyer_id, qty_ordered, price_per_item snapshot, total_amount, `order_status` PENDING/CONFIRMED/HANDED_OVER/CANCELLED)
@@ -71,8 +73,10 @@
 - [ ] Halaman Daftar (nama, phone, email, password, pilih peran BUYER/WARGA/ADMIN_KOPERASI) + validasi
 - [ ] Peran WARGA/ADMIN_KOPERASI: **tautkan identitas KDMP riil** — cari & pilih koperasi (`koperasi_ref`) / anggota (`anggota_ref`) dari Reference DB 🟡
 - [ ] Halaman Login + error "Email atau kata sandi tidak sesuai" · Logout
-- [ ] Tampilkan nama & peran di header setelah login
+- [ ] Tampilkan nama & peran + badge `verification_status` di header setelah login
+- [ ] Halaman **Verifikasi Identitas** (KYC): unggah NIK + foto KTP + dokumen pendukung 🟡
 - [ ] Halaman **Riwayatku** (aktivitas + rekap transaksi & komisi)
+- [ ] (Admin) Halaman **Tinjau Verifikasi** — daftar `PENDING`, aksi VERIFIED/REJECTED + catatan 🟡
 
 **Backend (Go)**
 - [ ] `POST /api/auth/register` (hash bcrypt; validasi `koperasi_ref`/`anggota_ref` ke Reference DB bila diisi) 🔴
@@ -80,20 +84,24 @@
 - [ ] `POST /api/auth/login` → terbitkan JWT 🔴
 - [ ] Middleware autentikasi JWT + otorisasi peran 🔴
 - [ ] `POST /api/auth/logout` 🟡 · `GET /api/me` · `GET /api/me/riwayat`
+- [ ] `POST /api/verifikasi` (ajukan KYC) · `GET /api/verifikasi` (daftar; admin) · `PUT /api/verifikasi/:id` (ADMIN_KOPERASI: VERIFIED/REJECTED → set `users.verification_status`) 🟡
 
 ## Modul B — Alur A: Pasang Kebutuhan (Demand) `[high]` → `features/01-pasang-kebutuhan.md` 🔴
 **Frontend**
-- [ ] Halaman **Jelajah Pasar** (publik) — daftar demand + indikator progress
-- [ ] Halaman **Buat Postingan Baru** (pilih komoditas, jumlah, satuan, target harga, tenggat) + validasi
-- [ ] Halaman **Detail Permintaan** — progress bar % tersanggupi + daftar penyanggup
+- [ ] Halaman **Jelajah Pasar** (publik) — daftar demand (hanya yang `OPEN`/DP terbayar) + indikator progress
+- [ ] Halaman **Buat Postingan Baru** (pilih komoditas, jumlah, satuan, target harga, tenggat) + tampil hitungan `total_price`/`dp_amount` (30%)/`remaining_amount`
+- [ ] Langkah **Bayar Uang Muka (DP)** — pilih metode (CASH/TRANSFER), tandai DP terbayar → demand `DRAFT → OPEN`
+- [ ] Halaman **Detail Permintaan** — status DP + progress bar % tersanggupi + daftar penyanggup
 - [ ] Tombol **Sanggupi** (just-in-time auth)
 
 **Backend (Go)**
-- [ ] `POST /api/demands` (buat; butuh auth buyer)
-- [ ] `GET /api/demands` (daftar publik) · `GET /api/demands/:id` (detail + agregasi pledge)
+- [ ] `POST /api/demands` (buat; butuh auth buyer; hitung total_price/dp_amount/remaining_amount; mulai `DRAFT`)
+- [ ] `POST /api/demands/:id/dp` (catat `dp_status = PAID`, `dp_paid_at`, metode) → demand `OPEN`
+- [ ] `GET /api/demands` (daftar publik; default hanya `OPEN`+) · `GET /api/demands/:id` (detail + agregasi pledge)
 - [ ] `POST /api/demands/:id/pledges` (warga menyanggupi; validasi ≤ sisa; update `fulfilled_qty`)
 - [ ] `GET /api/pledges` (milik warga login) · `PUT /api/pledges/:id` (status: ACCEPTED → DELIVERED_TO_KOPERASI → HANDED_TO_BUYER)
-- [ ] Logika status demand `OPEN → PARTIAL → CLOSED/EXPIRED` otomatis + anti over-pledge
+- [ ] Logika status demand `DRAFT → OPEN → PARTIAL → CLOSED/EXPIRED` + anti over-pledge
+- [ ] Logika DP: `FORFEITED` bila buyer batal setelah OPEN · `REFUNDED` bila demand gagal/di-EXPIRED koperasi
 
 ## Modul C — Alur B: Titip-Jual (Supply) `[high]` → `features/02-titip-jual.md` 🔴
 **Frontend**
@@ -186,9 +194,10 @@
 | Tabel | Kolom inti | Soft-ref KDMP | Alur |
 |---|---|---|---|
 | `koperasi` | id, nama, desa, wilayah, kontak, status | `koperasi_ref` | hub |
-| `users` | id, koperasi_id, name, phone, email, password_hash, role(BUYER/WARGA/ADMIN_KOPERASI), status | `anggota_ref` | — |
+| `users` | id, koperasi_id, name, phone, email, password_hash, role(BUYER/WARGA/ADMIN_KOPERASI), status, verification_status, verified_at | `anggota_ref` | — |
+| `verifications` | id, user_id, nik, id_card_file, support_doc_file, status(PENDING/VERIFIED/REJECTED), reviewed_by, review_note, reviewed_at | — | KYC |
 | `komoditas` | id, nama, kategori, satuan | `komoditas_ref` | acuan A+B |
-| `demands` | id, buyer_id, koperasi_id, komoditas_id, item_name, satuan, total_qty, fulfilled_qty, target_price_per_item, deadline, demand_status | via komoditas | A |
+| `demands` | id, buyer_id, koperasi_id, komoditas_id, item_name, satuan, total_qty, fulfilled_qty, target_price_per_item, deadline, demand_status(DRAFT/OPEN/PARTIAL/CLOSED/EXPIRED), **DP:** total_price, dp_percent, dp_amount, remaining_amount, dp_payment_method, dp_status(UNPAID/PAID/FORFEITED/REFUNDED), dp_paid_at | via komoditas | A |
 | `demand_pledges` | id, demand_id, warga_id, qty_pledged, qty_delivered, price_per_item, pledge_status | — | A |
 | `supply_listings` | id, koperasi_id, warga_id, komoditas_id, item_name, satuan, qty_available, qty_sold, price_per_item, listing_status | via komoditas | B |
 | `orders` | id, listing_id, buyer_id, qty_ordered, price_per_item, total_amount, order_status | — | B |
@@ -205,5 +214,7 @@
 - **Koperasi = hub/perantara** (bukan sekadar penjamin), menjalankan **dua alur**: Demand (pra-pesan) + Supply (titip-jual).
 - **Peran:** BUYER / PRODUCER / KOPERASI → **BUYER / WARGA / ADMIN_KOPERASI**.
 - **Grounding:** dari soft-ref runtime → **seed dari KDMP** ke tabel mandiri App DB (tetap simpan `*_ref` untuk telusur balik).
-- **Skema:** ~6 tabel escrow → **10 tabel** dua-alur (ERD `erd_marketplace_koperasi.mermaid`). Migrasi lama `000001` perlu diganti.
+- **Skema:** ~6 tabel escrow → **11 tabel** dua-alur (ERD `erd_marketplace_koperasi.mermaid`). Migrasi lama `000001` perlu diganti.
+- **Uang muka (DP)** pada demand (default 30%, `dp_status` UNPAID/PAID/FORFEITED/REFUNDED) + status `DRAFT` — dari ERD Herick; memberi komitmen pra-pesan tanpa escrow penuh.
+- **Verifikasi identitas (KYC)** — tabel `verifications` + `users.verification_status`, ditinjau ADMIN_KOPERASI (dari ERD Herick).
 - Stack tetap: **Nuxt.js + Go REST API + PostgreSQL (dua-DB) + Docker**.

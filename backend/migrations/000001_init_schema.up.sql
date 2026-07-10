@@ -34,8 +34,25 @@ CREATE TABLE IF NOT EXISTS users (
     email         text UNIQUE,
     password_hash text,
     role          text NOT NULL CHECK (role IN ('BUYER','WARGA','ADMIN_KOPERASI')),
+    verification_status text NOT NULL DEFAULT 'UNVERIFIED' CHECK (verification_status IN ('UNVERIFIED','PENDING','VERIFIED','REJECTED')),
+    verified_at   timestamptz,
     status        smallint NOT NULL DEFAULT 1,
     created_at    timestamptz NOT NULL DEFAULT now()
+);
+
+-- verifications (KYC) — diajukan user, ditinjau ADMIN_KOPERASI ----------
+CREATE TABLE IF NOT EXISTS verifications (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id          uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    nik              text,
+    id_card_file     text,                        -- path/URL foto KTP
+    support_doc_file text,                        -- dokumen pendukung (opsional)
+    status           text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','VERIFIED','REJECTED')),
+    reviewed_by      uuid REFERENCES users(id) ON DELETE SET NULL, -- ADMIN_KOPERASI
+    review_note      text,
+    reviewed_at      timestamptz,
+    user_input       text, tanggal_input  timestamptz NOT NULL DEFAULT now(),
+    user_update      text, tanggal_update timestamptz NOT NULL DEFAULT now()
 );
 
 -- komoditas (master) — seed dari KDMP referensi_komoditas_desa ---------
@@ -58,8 +75,16 @@ CREATE TABLE IF NOT EXISTS demands (
     total_qty              integer NOT NULL CHECK (total_qty > 0),
     fulfilled_qty          integer NOT NULL DEFAULT 0 CHECK (fulfilled_qty >= 0),
     target_price_per_item  numeric(18,2) CHECK (target_price_per_item >= 0),
+    -- uang muka (DP) --
+    total_price            numeric(18,2) CHECK (total_price >= 0),
+    dp_percent             numeric(5,2) NOT NULL DEFAULT 30 CHECK (dp_percent >= 0 AND dp_percent <= 100),
+    dp_amount              numeric(18,2) CHECK (dp_amount >= 0),
+    remaining_amount       numeric(18,2) CHECK (remaining_amount >= 0),
+    dp_payment_method      text CHECK (dp_payment_method IN ('CASH','TRANSFER')),
+    dp_status              text NOT NULL DEFAULT 'UNPAID' CHECK (dp_status IN ('UNPAID','PAID','FORFEITED','REFUNDED')),
+    dp_paid_at             timestamptz,
     deadline               timestamptz,
-    demand_status          text NOT NULL DEFAULT 'OPEN' CHECK (demand_status IN ('OPEN','PARTIAL','CLOSED','EXPIRED')),
+    demand_status          text NOT NULL DEFAULT 'DRAFT' CHECK (demand_status IN ('DRAFT','OPEN','PARTIAL','CLOSED','EXPIRED')),
     user_input     text, tanggal_input  timestamptz NOT NULL DEFAULT now(),
     user_update    text, tanggal_update timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT demands_fulfilled_not_over CHECK (fulfilled_qty <= total_qty)
@@ -151,6 +176,8 @@ CREATE TABLE IF NOT EXISTS disputes (
 
 -- indexes ---------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_users_koperasi     ON users (koperasi_id);
+CREATE INDEX IF NOT EXISTS idx_verifications_user ON verifications (user_id);
+CREATE INDEX IF NOT EXISTS idx_verifications_status ON verifications (status);
 CREATE INDEX IF NOT EXISTS idx_komoditas_nama     ON komoditas (nama);
 CREATE INDEX IF NOT EXISTS idx_demands_status     ON demands (demand_status);
 CREATE INDEX IF NOT EXISTS idx_demands_koperasi   ON demands (koperasi_id);
@@ -167,6 +194,7 @@ CREATE INDEX IF NOT EXISTS idx_disputes_pledge    ON disputes (demand_pledge_id)
 CREATE INDEX IF NOT EXISTS idx_disputes_order     ON disputes (order_id);
 
 -- tanggal_update triggers ----------------------------------------------
+CREATE TRIGGER trg_verifications_upd BEFORE UPDATE ON verifications      FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
 CREATE TRIGGER trg_demands_upd      BEFORE UPDATE ON demands             FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
 CREATE TRIGGER trg_pledges_upd      BEFORE UPDATE ON demand_pledges      FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
 CREATE TRIGGER trg_listings_upd     BEFORE UPDATE ON supply_listings     FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();

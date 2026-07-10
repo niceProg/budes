@@ -21,7 +21,9 @@ Berbeda dari marketplace yang mengarang katalog, sisi-suplai Budes **ditanamkan 
 *   **Fokus pada Niat Pengguna Dulu (Try-before-Register):** Pengunjung harus dapat melihat daftar kebutuhan (alur A) dan listing komoditas (alur B) secara transparan sebelum diwajibkan mendaftar. Pendaftaran baru diminta ketika mereka melakukan aksi konkret ("Sanggupi", "Pasang Kebutuhan", "Pesan", atau "Titipkan").
 *   **Dua Alur Transaksi:** Sistem mendukung **Demand** (pembeli minta → warga sanggupi → setor ke koperasi → serah ke pembeli) dan **Supply** (warga titip → koperasi listing → pembeli pesan). Keduanya diperantarai koperasi.
 *   **Pemenuhan Fleksibel (Gotong Royong):** Pada alur Demand, satu permintaan besar (misal: 500 ekor ayam) harus bisa disanggupi banyak warga bersama-sama sesuai kapasitas masing-masing (misal: 5 orang @100 ayam).
-*   **Transaksi Offline yang Tercatat (bukan escrow):** Pembayaran terjadi di luar sistem (tunai/transfer). Sistem **mencatat** tiap transaksi — nilai kotor, komisi koperasi, nilai bersih ke warga — dengan status pembayaran `UNPAID → PAID → SETTLED`. Tidak ada dompet digital atau rekening bersama; model ini menyesuaikan realitas transaksi desa yang mayoritas tunai.
+*   **Transaksi Offline yang Tercatat (tanpa escrow penuh):** Pembayaran terjadi di luar sistem (tunai/transfer). Sistem **mencatat** tiap transaksi — nilai kotor, komisi koperasi, nilai bersih ke warga — dengan status pembayaran `UNPAID → PAID → SETTLED`. Tidak ada dompet digital atau rekening bersama; model ini menyesuaikan realitas transaksi desa yang mayoritas tunai.
+*   **Uang Muka (DP) Pra-pesan:** Untuk alur Demand, pembeli membayar **uang muka** (default **30%**) sebagai komitmen sebelum kebutuhan disebar. DP dibayar & dicatat offline (`dp_status` `UNPAID → PAID`); sisa (`remaining_amount`) dibayar saat serah-terima. Bila pembeli batal, DP **`FORFEITED`** (hangus, jadi kompensasi); bila demand gagal/dibatalkan koperasi, DP **`REFUNDED`**. Ini memberi keseriusan pra-pesan tanpa menahan seluruh dana.
+*   **Verifikasi Identitas (KYC):** BUYER & WARGA dapat mengajukan verifikasi identitas (NIK + foto KTP + dokumen pendukung opsional). **ADMIN_KOPERASI** meninjau (`VERIFIED`/`REJECTED`). Status `verification_status` menjadi penanda kepercayaan (mis. syarat untuk aksi bernilai besar).
 *   **Sistem Komisi Koperasi:** Sistem menghitung otomatis komisi sekian persen untuk koperasi dari setiap transaksi, tercatat rapi di pembukuan koperasi.
 *   **Penyelesaian Sengketa Sebagian:** Jika dalam pesanan gotong royong ada satu warga yang gagal setor/kirim, hanya bagian (pledge/order) milik warga tersebut yang masuk sengketa; bagian warga lain yang berhasil tetap diproses.
 *   **Grounded pada Data Nyata (Dataset KDMP):** Koperasi, komoditas unggulan, dan warga di-seed dari dataset KDMP read-only dan menyimpan referensi balik (`koperasi_ref`/`komoditas_ref`/`anggota_ref`). Matching/broadcast kebutuhan memakai sinyal komoditas & inventaris nyata per wilayah.
@@ -34,10 +36,12 @@ Berdasarkan model hub-koperasi dua-alur, pilar utama platform ini meliputi:
     *   *Daftar Akun*: pendaftaran untuk 3 peran: **BUYER** (pembeli, bisa dari luar desa), **WARGA** (produsen anggota koperasi), **ADMIN_KOPERASI** (pengurus).
     *   *Tautkan Identitas KDMP*: warga/admin dapat menaut ke koperasi (`koperasi_ref`) & identitas anggota (`anggota_ref`) nyata dari dataset KDMP.
     *   *Login & Logout*: autentikasi JWT standar.
+    *   *Verifikasi Identitas (KYC)*: pengguna mengajukan `VERIFICATIONS` (NIK, foto KTP, dokumen pendukung); ADMIN_KOPERASI meninjau → `verification_status` pengguna `UNVERIFIED → PENDING → VERIFIED/REJECTED`.
     *   *Riwayatku*: audit semua aktivitas pasang/sanggup/titip/pesan + rekap transaksi & komisi.
 
 *   **Alur A — Pasang Kebutuhan (Demand)** [high] — permintaan dari pembeli.
-    *   *Buat Postingan Baru*: form pembeli menulis komoditas (acuan ke `KOMODITAS`), jumlah, satuan, target harga/item, tenggat.
+    *   *Buat Postingan Baru*: form pembeli menulis komoditas (acuan ke `KOMODITAS`), jumlah, satuan, target harga/item, tenggat. Sistem menghitung `total_price`, `dp_amount` (default 30%), dan `remaining_amount`.
+    *   *Bayar Uang Muka (DP)*: demand mulai `DRAFT`; setelah DP tercatat `PAID`, berpindah `OPEN` dan disebar ke warga. DP bisa `FORFEITED` (pembeli batal) / `REFUNDED` (demand gagal).
     *   *Jelajah Pasar*: etalase publik semua permintaan aktif + progress % tersanggupi.
     *   *Penyanggupan (Pledge)*: warga menekan "Sanggupi" dan mengisi jumlah yang sanggup dipenuhi (mendukung gotong royong).
     *   *Setor ke Koperasi*: warga menyetor barang ke koperasi (`DELIVERED_TO_KOPERASI`), lalu koperasi menyerahkan ke pembeli (`HANDED_TO_BUYER`).
@@ -69,10 +73,11 @@ Berdasarkan model hub-koperasi dua-alur, pilar utama platform ini meliputi:
 **Eksplorasi Awal (semua pengguna).** Pengunjung membuka web dan langsung melihat "Jelajah Pasar" (kebutuhan aktif — alur A) dan etalase listing komoditas (alur B), tanpa login.
 
 **Alur A — Pra-pesan (Demand):**
-1.  Pembeli klik "Buat Postingan Baru", memilih komoditas + jumlah + target harga + tenggat (diminta Login/Daftar bila belum). Permintaan tampil publik.
-2.  Koperasi/sistem menyebarkan ke warga relevan (matching grounded). Warga menekan "Sanggupi" (misal "sanggup 100 ekor"); banyak warga bisa mengisi bersama sampai kebutuhan terpenuhi.
-3.  Warga menyiapkan & menyetor barang ke koperasi sebelum tenggat (status `DELIVERED_TO_KOPERASI`). Koperasi menyerahkan ke pembeli (`HANDED_TO_BUYER`).
-4.  Pembeli mengonfirmasi penerimaan. Sistem mencatat `DEMAND_TRANSACTIONS` per warga: gross dibayar pembeli, dipotong komisi koperasi, sisanya net ke warga — dengan status pembayaran diperbarui (`PAID`/`SETTLED`). Bila bermasalah → `DISPUTES` (hanya bagian terkait).
+1.  Pembeli klik "Buat Postingan Baru", memilih komoditas + jumlah + target harga + tenggat (diminta Login/Daftar bila belum). Demand tersimpan `DRAFT`; sistem menghitung `total_price` & `dp_amount` (30%).
+2.  Pembeli membayar **uang muka** (offline, tunai/transfer); koperasi mencatat `dp_status = PAID`. Demand berpindah `OPEN` dan tampil publik (berstempel "DP Terbayar").
+3.  Koperasi/sistem menyebarkan ke warga relevan (matching grounded). Warga menekan "Sanggupi" (misal "sanggup 100 ekor"); banyak warga bisa mengisi bersama sampai kebutuhan terpenuhi.
+4.  Warga menyiapkan & menyetor barang ke koperasi sebelum tenggat (status `DELIVERED_TO_KOPERASI`). Koperasi menyerahkan ke pembeli (`HANDED_TO_BUYER`).
+5.  Pembeli melunasi `remaining_amount` & mengonfirmasi penerimaan. Sistem mencatat `DEMAND_TRANSACTIONS` per warga: gross dibayar pembeli, dipotong komisi koperasi, sisanya net ke warga — status pembayaran diperbarui (`PAID`/`SETTLED`). Bila pembeli batal → DP `FORFEITED`; bila bermasalah → `DISPUTES` (hanya bagian terkait).
 
 **Alur B — Titip-jual (Supply):**
 1.  Warga menitipkan komoditas yang sudah ada; koperasi memposting `SUPPLY_LISTING` (jumlah tersedia + harga).
@@ -148,12 +153,16 @@ Skema berikut adalah **App DB (writable)** milik Budes — model hub-koperasi du
     *   `koperasi_ref` (Text) — *soft ref* → KDMP `referensi_koperasi_wilayah.koperasi_ref`
 *   **users**: Pengguna 3 peran. Warga di-seed/ditaut dari KDMP `anggota_koperasi`.
     *   `id` (UUID) PK · `koperasi_id` (FK, null bila buyer eksternal) · `name` · `phone` · `email` · `password_hash` · `role` (Enum `BUYER`,`WARGA`,`ADMIN_KOPERASI`) · `status`
+    *   `verification_status` (Enum `UNVERIFIED`,`PENDING`,`VERIFIED`,`REJECTED`) · `verified_at` (Timestamp, nullable)
     *   `anggota_ref` (Text, nullable) — *soft ref* → KDMP `anggota_koperasi.anggota_ref`
+*   **verifications**: Pengajuan verifikasi identitas (KYC).
+    *   `id` (UUID) PK · `user_id` (FK, pengaju) · `nik` · `id_card_file` (foto KTP) · `support_doc_file` (opsional) · `status` (Enum `PENDING`,`VERIFIED`,`REJECTED`) · `reviewed_by` (FK → users ADMIN_KOPERASI) · `review_note` · `reviewed_at`
 *   **komoditas**: Master komoditas. Seed dari KDMP `referensi_komoditas_desa`.
     *   `id` (UUID) PK · `nama` · `kategori` · `satuan` (kg, ikat, karung, dll)
     *   `komoditas_ref` (Text, nullable) — *soft ref* → KDMP `referensi_komoditas_desa.komoditas_ref`
 *   **demands** (Alur A — kebutuhan pembeli):
-    *   `id` PK · `buyer_id` FK · `koperasi_id` FK · `komoditas_id` FK · `item_name` · `satuan` · `total_qty` · `fulfilled_qty` · `target_price_per_item` · `deadline` · `demand_status` (Enum `OPEN`,`PARTIAL`,`CLOSED`,`EXPIRED`)
+    *   `id` PK · `buyer_id` FK · `koperasi_id` FK · `komoditas_id` FK · `item_name` · `satuan` · `total_qty` · `fulfilled_qty` · `target_price_per_item` · `deadline` · `demand_status` (Enum `DRAFT`,`OPEN`,`PARTIAL`,`CLOSED`,`EXPIRED`)
+    *   **Uang muka (DP):** `total_price` · `dp_percent` (default 30) · `dp_amount` · `remaining_amount` · `dp_payment_method` (Enum `CASH`,`TRANSFER`) · `dp_status` (Enum `UNPAID`,`PAID`,`FORFEITED`,`REFUNDED`) · `dp_paid_at`
 *   **demand_pledges** (Alur A — sanggupan warga):
     *   `id` PK · `demand_id` FK · `warga_id` FK · `qty_pledged` · `qty_delivered` · `price_per_item` (harga sepakat) · `pledge_status` (Enum `PENDING`,`ACCEPTED`,`DELIVERED_TO_KOPERASI`,`HANDED_TO_BUYER`,`CANCELLED`)
 *   **supply_listings** (Alur B — titipan warga):
@@ -172,6 +181,7 @@ erDiagram
     KOPERASI ||--o{ USERS           : "menaungi"
     KOPERASI ||--o{ DEMANDS         : "mengelola"
     KOPERASI ||--o{ SUPPLY_LISTINGS : "memposting"
+    USERS ||--o{ VERIFICATIONS   : "verifikasi KYC"
     USERS ||--o{ DEMANDS         : "buyer membuat"
     USERS ||--o{ DEMAND_PLEDGES  : "warga menyanggupi"
     USERS ||--o{ SUPPLY_LISTINGS : "warga menitipkan"
