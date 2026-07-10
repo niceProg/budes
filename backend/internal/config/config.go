@@ -5,17 +5,19 @@ import "os"
 
 // Config menampung seluruh setting runtime backend Budes.
 type Config struct {
-	Port   string // port HTTP API
-	AppDSN string // App DB (writable) — transaksional
-	RefDSN string // Reference DB (read-only) — dataset KDMP
+	Port      string // port HTTP API
+	AppDSN    string // App DB (writable) — transaksional
+	RefDSN    string // Reference DB (read-only) — dataset KDMP
+	JWTSecret string // kunci penandatangan JWT (HS256)
 }
 
 // Load membaca konfigurasi dari environment dengan fallback default dev lokal.
 func Load() Config {
 	return Config{
-		Port:   getenv("PORT", "8080"),
-		AppDSN: getenv("APP_DATABASE_URL", "postgres://budes:budes@localhost:5434/budes_app"),
-		RefDSN: getenv("REF_DATABASE_URL", "postgres://budes:budes@localhost:5433/hackathon_2026"),
+		Port:      getenv("PORT", "8080"),
+		AppDSN:    getenv("APP_DATABASE_URL", "postgres://budes:budes@localhost:5434/budes_app"),
+		RefDSN:    getenv("REF_DATABASE_URL", "postgres://budes:budes@localhost:5433/hackathon_2026"),
+		JWTSecret: getenv("JWT_SECRET", "budes-dev-secret-change-me"),
 	}
 }
 

@@ -22,3 +22,12 @@ func OK(w http.ResponseWriter, data any) {
 func Error(w http.ResponseWriter, status int, msg string) {
 	JSON(w, status, map[string]any{"error": msg})
 }
+
+// Decode membaca body JSON request ke dst. Kembalikan false + tulis 400 bila gagal.
+func Decode(w http.ResponseWriter, r *http.Request, dst any) bool {
+	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
+		Error(w, http.StatusBadRequest, "body JSON tidak valid: "+err.Error())
+		return false
+	}
+	return true
+}
