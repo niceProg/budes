@@ -8,6 +8,7 @@ docs
 # secrets & build artifacts
 .env
 CLAUDE.md
+MEMORY.md
 
 # dump/artefak dataset KDMP — regenerate via deploy/sync-ref-db.sh
 deploy/dumps/
