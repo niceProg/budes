@@ -1,28 +1,6 @@
 <script setup lang="ts">
 import { useApp, KOPERASI } from '~/stores/app'
 const app = useApp()
-
-// Opsi peran untuk kartu pilih peran (ikon = path SVG gaya lucide).
-const roleOpts = [
-  {
-    value: 'BUYER',
-    label: 'Pembeli',
-    desc: 'Memasang kebutuhan & memesan',
-    icon: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'
-  },
-  {
-    value: 'WARGA',
-    label: 'Warga Desa',
-    desc: 'Menyanggupi & menitipkan komoditas',
-    icon: '<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>'
-  },
-  {
-    value: 'ADMIN_KOPERASI',
-    label: 'Admin Koperasi',
-    desc: 'Mengelola koperasi & transaksi',
-    icon: '<path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/>'
-  }
-]
 </script>
 
 <template>
@@ -81,42 +59,12 @@ const roleOpts = [
             <input v-model="app.reg.pass" type="password" placeholder="••••••" class="field-input" />
           </div>
           <div class="mb-3">
-            <label class="field-label">Saya adalah…</label>
-            <div class="flex flex-col gap-2">
-              <button
-                v-for="r in roleOpts"
-                :key="r.value"
-                type="button"
-                class="flex items-center gap-3 rounded-xl border-2 p-3 text-left transition"
-                :class="app.reg.role === r.value
-                  ? 'border-pink-600 bg-pink-50'
-                  : 'border-gray-200 bg-white hover:border-gray-350'"
-                @click="app.reg.role = r.value"
-              >
-                <span
-                  class="grid h-10 w-10 shrink-0 place-items-center rounded-full"
-                  :class="app.reg.role === r.value ? 'bg-white text-pink-600' : 'bg-gray-100 text-gray-700'"
-                >
-                  <svg
-                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"
-                    v-html="r.icon"
-                  />
-                </span>
-                <span class="min-w-0">
-                  <span class="block text-sm font-extrabold text-gray-800">{{ r.label }}</span>
-                  <span class="block text-xs text-gray-600">{{ r.desc }}</span>
-                </span>
-                <svg
-                  v-if="app.reg.role === r.value"
-                  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                  stroke-linecap="round" stroke-linejoin="round"
-                  class="ml-auto h-5 w-5 shrink-0 text-pink-600"
-                >
-                  <circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" />
-                </svg>
-              </button>
-            </div>
+            <label class="field-label">Mendaftar sebagai</label>
+            <select v-model="app.reg.role" class="field-input">
+              <option value="BUYER">Pembeli (BUYER)</option>
+              <option value="WARGA">Warga Desa (WARGA)</option>
+              <option value="ADMIN_KOPERASI">Admin Koperasi (ADMIN_KOPERASI)</option>
+            </select>
           </div>
           <div v-if="app.reg.role !== 'BUYER'" class="mb-3 rounded-xl border border-sand-200 bg-sand-100 p-3.5">
             <div class="mb-2.5 text-xs font-extrabold text-clay-700">Penautan KDMP</div>

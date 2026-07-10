@@ -51,7 +51,7 @@ const pledges = computed(() =>
               <StatusBadge :badge="p.badge" class="shrink-0" />
             </div>
           </div>
-          <p v-else class="text-[13.5px] text-sand-700">
+          <p v-else-if="!app.isAdmin" class="text-[13.5px] text-sand-700">
             Belum ada penyanggup. Jadilah yang pertama bergotong royong memenuhi kebutuhan ini.
           </p>
         </div>
@@ -75,7 +75,7 @@ const pledges = computed(() =>
           </div>
         </div>
 
-        <div class="card p-6">
+        <div v-if="!app.isAdmin" class="card p-6">
           <h3 class="mb-1.5 text-base font-extrabold">Punya hasil panen ini?</h3>
           <p class="mb-4 text-[13px] leading-relaxed text-sand-700">
             Sanggupi sebagian atau seluruhnya — sisa kebutuhan {{ det.sisaKuotaTxt }}.
@@ -93,7 +93,7 @@ const pledges = computed(() =>
           </div>
           <template v-else>
             <p class="mb-3 text-[13px] text-sand-700">Belum ada koperasi yang cocok dengan komoditas ini.</p>
-            <button class="btn-soft btn-block py-2.5 text-[13px]" @click="app.showToast('Siap! Kami kabari bila ada koperasi yang cocok.')">Kabari saya bila ada</button>
+            <button v-if="!app.isAdmin" class="btn-soft btn-block py-2.5 text-[13px]" @click="app.showToast('Siap! Kami kabari bila ada koperasi yang cocok.')">Kabari saya bila ada</button>
           </template>
         </div>
       </div>

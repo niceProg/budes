@@ -49,8 +49,8 @@ const pilar = [
 
 <template>
   <div>
-    <!-- HERO (gaya Parja: gradien magenta + wave) -->
-    <section class="relative overflow-hidden bg-pink-gradient pt-8">
+    <!-- HERO (gaya Parja: gradien magenta + wave) — disembunyikan untuk admin -->
+    <section v-if="!app.isAdmin" class="relative overflow-hidden bg-pink-gradient pt-8">
       <div class="pointer-events-none absolute -right-28 -top-28 h-[480px] w-[480px] rounded-full bg-white/[0.06]" />
       <div class="pointer-events-none absolute -left-24 bottom-16 h-[360px] w-[360px] rounded-full bg-white/[0.04]" />
 
@@ -69,7 +69,7 @@ const pilar = [
               dan Koperasi Desa (KDMP) menjadi penghubungnya. Lihat dulu — daftar saat ingin bertransaksi.
             </p>
             <div class="mb-8 flex flex-wrap gap-3">
-              <button class="btn-light px-6 py-3 text-[0.95rem]" @click="app.ctaBuat()">+ Buat Permintaan</button>
+              <button v-if="app.isBuyer || !app.isLoggedIn" class="btn-light px-6 py-3 text-[0.95rem]" @click="app.ctaBuat()">+ Buat Permintaan</button>
               <NuxtLink to="/etalase" class="btn-outline-light px-6 py-3 text-[0.95rem]">Lihat Etalase</NuxtLink>
             </div>
             <div class="flex flex-wrap gap-8">
@@ -110,8 +110,8 @@ const pilar = [
     </section>
 
     <div class="page pb-20">
-      <!-- ALUR / TAHAPAN -->
-      <section class="mt-14 text-center">
+      <!-- ALUR / TAHAPAN — disembunyikan untuk admin -->
+      <section v-if="!app.isAdmin" class="mt-14 text-center">
         <span class="section-badge">Alur Gotong Royong</span>
         <h2 class="section-heading mb-10">Bagaimana Bursa Desa Bekerja</h2>
         <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(230px, 1fr))">
@@ -126,24 +126,26 @@ const pilar = [
         </div>
       </section>
 
-      <!-- PILAR -->
-      <div class="section-title mt-20">
-        <span class="section-badge">Kenapa Bursa Desa</span>
-        <h2>Bukan Sekadar Marketplace</h2>
-        <p>Kami menempatkan koperasi desa sebagai hub aktif yang merakit pasokan menjadi kepastian.</p>
-      </div>
-      <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr))">
-        <div v-for="(p, i) in pilar" :key="i" class="card card-hover group p-8">
-          <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-pink-soft text-2xl transition group-hover:bg-pink-gradient">
-            {{ p.ikon }}
-          </div>
-          <h3 class="mb-2 font-heading text-[1.1rem] font-bold text-gray-800">{{ p.judul }}</h3>
-          <p class="text-[0.9rem] text-gray-600">{{ p.teks }}</p>
+      <!-- PILAR — disembunyikan untuk admin -->
+      <template v-if="!app.isAdmin">
+        <div class="section-title mt-20">
+          <span class="section-badge">Kenapa Bursa Desa</span>
+          <h2>Bukan Sekadar Marketplace</h2>
+          <p>Kami menempatkan koperasi desa sebagai hub aktif yang merakit pasokan menjadi kepastian.</p>
         </div>
-      </div>
+        <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr))">
+          <div v-for="(p, i) in pilar" :key="i" class="card card-hover group p-8">
+            <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-pink-soft text-2xl transition group-hover:bg-pink-gradient">
+              {{ p.ikon }}
+            </div>
+            <h3 class="mb-2 font-heading text-[1.1rem] font-bold text-gray-800">{{ p.judul }}</h3>
+            <p class="text-[0.9rem] text-gray-600">{{ p.teks }}</p>
+          </div>
+        </div>
+      </template>
 
       <!-- PERMINTAAN PEMBELI -->
-      <div class="section-title mt-20">
+      <div class="section-title" :class="app.isAdmin ? 'mt-6' : 'mt-20'">
         <span class="section-badge">Pasar Aktif</span>
         <h2>Permintaan Pembeli</h2>
         <p>Kebutuhan yang bisa disanggupi warga lewat koperasi desa.</p>
@@ -193,7 +195,7 @@ const pilar = [
             <span>{{ sorot.hariTxt }}</span>
           </div>
           <ProgressBar :pct="sorot.pct" height="h-3" class="mb-4" />
-          <span class="btn-primary btn-block py-3">Lihat &amp; Sanggupi</span>
+          <span class="btn-primary btn-block py-3">{{ app.isAdmin ? 'Lihat Detail' : 'Lihat & Sanggupi' }}</span>
         </div>
       </NuxtLink>
 
@@ -206,7 +208,7 @@ const pilar = [
       <div v-if="!pasarList.length" class="card rounded-2xl border border-dashed border-gray-350 px-6 py-12 text-center">
         <div class="mb-1.5 font-heading text-[17px] font-bold text-gray-800">Belum ada permintaan pada filter ini</div>
         <p class="mb-[18px] text-[13.5px] text-gray-600">Jadilah pembeli pertama yang memposting kebutuhan komoditas desa.</p>
-        <button class="btn-primary px-5 py-2.5" @click="app.ctaBuat()">+ Buat Permintaan</button>
+        <button v-if="app.isBuyer || !app.isLoggedIn" class="btn-primary px-5 py-2.5" @click="app.ctaBuat()">+ Buat Permintaan</button>
       </div>
     </div>
   </div>

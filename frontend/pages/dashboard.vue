@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useApp } from '~/stores/app'
 import { PAY_BADGE, badge } from '~/utils/badges'
-import { initial } from '~/utils/decorate'
 
 const app = useApp()
 onMounted(() => {
@@ -33,13 +32,12 @@ const txnList = computed(() =>
 const totGross = computed(() => app.txns.reduce((a, t) => a + t.gross, 0))
 const totFee = computed(() => totGross.value * 0.05)
 const unpaidCount = computed(() => app.txns.filter((t) => t.pay === 'UNPAID').length)
-const kycList = computed(() => app.kyc.map((k) => ({ ...k, initial: initial(k.name) })))
 </script>
 
 <template>
   <div class="mx-auto max-w-page px-5 pb-16 pt-7">
     <h2 class="mb-1 text-[22px] font-extrabold">Dashboard Koperasi</h2>
-    <p class="mb-5 text-[13.5px] text-sand-700">KDMP Desa Sukamaju — pembukuan komisi dan verifikasi anggota.</p>
+    <p class="mb-5 text-[13.5px] text-sand-700">KDMP Desa Sukamaju — ringkasan pembukuan & transaksi koperasi.</p>
 
     <!-- stat tiles -->
     <div class="mb-5 grid gap-3.5" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))">
@@ -90,21 +88,5 @@ const kycList = computed(() => app.kyc.map((k) => ({ ...k, initial: initial(k.na
       </div>
     </section>
 
-    <!-- KYC -->
-    <section class="card p-[22px]">
-      <h3 class="mb-3.5 text-[15.5px] font-extrabold">Verifikasi Anggota (KYC)</h3>
-      <div v-if="kycList.length" class="flex flex-col gap-2.5">
-        <div v-for="k in kycList" :key="k.id" class="flex flex-wrap items-center gap-3 rounded-xl border border-sand-200 px-[15px] py-3">
-          <div class="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-gold-50 text-[13px] font-extrabold text-gold-700">{{ k.initial }}</div>
-          <div class="min-w-[170px] flex-1">
-            <div class="text-[13.5px] font-bold">{{ k.name }}</div>
-            <div class="text-xs text-sand-700">NIK {{ k.nik }}</div>
-          </div>
-          <button class="btn-success rounded-[9px] px-3.5 py-[7px] text-[11.5px]" @click="app.kycAct(k.id, true)">Verifikasi</button>
-          <button class="cursor-pointer rounded-[9px] border-[1.5px] border-rose-200 bg-white px-3.5 py-1.5 text-[11.5px] font-bold text-rose-700 transition hover:bg-rose-50" @click="app.kycAct(k.id, false)">Tolak</button>
-        </div>
-      </div>
-      <p v-else class="text-[13px] text-sand-700">Tidak ada pengajuan yang menunggu. Semua beres ✓</p>
-    </section>
   </div>
 </template>

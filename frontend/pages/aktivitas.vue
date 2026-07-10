@@ -61,7 +61,7 @@ const myListings = computed(() =>
           </div>
         </div>
         <p v-else class="text-[13px] text-sand-700">
-          Belum ada permintaan. <button class="link" @click="app.ctaBuat()">Buat sekarang →</button>
+          Belum ada permintaan.<template v-if="app.isBuyer || !app.isLoggedIn"> <button class="link" @click="app.ctaBuat()">Buat sekarang →</button></template>
         </p>
       </section>
 
