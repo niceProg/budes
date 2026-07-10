@@ -65,10 +65,10 @@ func (r *Repository) MarkDPPaid(ctx context.Context, id, buyerID, method string)
 	return ct.RowsAffected(), nil
 }
 
-// List mengembalikan demand dengan status tertentu (untuk etalase publik).
-func (r *Repository) List(ctx context.Context, statuses []string) ([]Demand, error) {
+// List mengembalikan demand dengan status tertentu (untuk etalase publik), berpaginasi.
+func (r *Repository) List(ctx context.Context, statuses []string, limit, offset int) ([]Demand, error) {
 	rows, err := r.pool.Query(ctx, `SELECT `+demandCols+` FROM demands
-		WHERE demand_status = ANY($1) ORDER BY tanggal_input DESC LIMIT 100`, statuses)
+		WHERE demand_status = ANY($1) ORDER BY tanggal_input DESC LIMIT $2 OFFSET $3`, statuses, limit, offset)
 	if err != nil {
 		return nil, err
 	}

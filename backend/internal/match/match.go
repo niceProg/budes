@@ -30,12 +30,13 @@ func (h *Handler) ByDemand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	provinsi := r.URL.Query().Get("provinsi") // opsional
-	stok, err := h.ref.MatchKandidat(r.Context(), d.ItemName, provinsi, 10)
+	limit, _ := httpx.Paginate(r)             // ?limit= (default 50, maks 100)
+	stok, err := h.ref.MatchKandidat(r.Context(), d.ItemName, provinsi, limit)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	potensi, err := h.ref.MatchPotensiDesa(r.Context(), d.ItemName, provinsi, 10)
+	potensi, err := h.ref.MatchPotensiDesa(r.Context(), d.ItemName, provinsi, limit)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return

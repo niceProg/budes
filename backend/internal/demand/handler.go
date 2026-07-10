@@ -23,7 +23,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	if s := r.URL.Query().Get("status"); s != "" {
 		statuses = splitCSV(s)
 	}
-	res, err := h.repo.List(r.Context(), statuses)
+	limit, offset := httpx.Paginate(r)
+	res, err := h.repo.List(r.Context(), statuses, limit, offset)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
