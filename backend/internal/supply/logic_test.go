@@ -3,23 +3,26 @@ package supply
 import "testing"
 
 func TestOrderTransitions(t *testing.T) {
-	if !contains(orderTransitions["PENDING"], "CONFIRMED") {
-		t.Error("PENDING→CONFIRMED harus valid")
+	if !contains(orderTransitions["BARU"], "CONFIRMED") {
+		t.Error("BARU→CONFIRMED harus valid")
 	}
-	if !contains(orderTransitions["PENDING"], "CANCELLED") {
-		t.Error("PENDING→CANCELLED harus valid")
+	if !contains(orderTransitions["BARU"], "CANCELLED") {
+		t.Error("BARU→CANCELLED harus valid")
 	}
-	// HANDED_OVER hanya via verifikasi, bukan PUT generik
-	if contains(orderTransitions["CONFIRMED"], "HANDED_OVER") {
-		t.Error("CONFIRMED→HANDED_OVER harus DITOLAK di PUT generik")
+	// DONE hanya via verifikasi, bukan PUT generik
+	if contains(orderTransitions["CONFIRMED"], "DONE") {
+		t.Error("CONFIRMED→DONE harus DITOLAK di PUT generik")
 	}
 }
 
 func TestListingTransitions(t *testing.T) {
-	if !contains(listingTransitions["DRAFT"], "POSTED") {
-		t.Error("DRAFT→POSTED harus valid")
+	if !contains(listingTransitions["ACTIVE"], "INACTIVE") {
+		t.Error("ACTIVE→INACTIVE harus valid")
 	}
-	if contains(listingTransitions["DRAFT"], "SOLD_OUT") {
-		t.Error("DRAFT→SOLD_OUT tidak boleh langsung")
+	if !contains(listingTransitions["SOLD_OUT"], "ACTIVE") {
+		t.Error("SOLD_OUT→ACTIVE harus valid (reaktivasi)")
+	}
+	if contains(listingTransitions["INACTIVE"], "SOLD_OUT") {
+		t.Error("INACTIVE→SOLD_OUT tidak boleh langsung")
 	}
 }

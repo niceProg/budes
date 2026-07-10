@@ -22,14 +22,14 @@ func TestComputeDP(t *testing.T) {
 }
 
 func TestPledgeTransitions(t *testing.T) {
-	valid := [][2]string{{"PENDING", "ACCEPTED"}, {"PENDING", "CANCELLED"}, {"ACCEPTED", "DELIVERED_TO_KOPERASI"}}
+	valid := [][2]string{{"PLEDGED", "CONFIRMED"}, {"PLEDGED", "CANCELLED"}, {"CONFIRMED", "CANCELLED"}}
 	for _, v := range valid {
 		if !allowed(forwardTransitions[v[0]], v[1]) {
 			t.Errorf("transisi %s→%s seharusnya valid", v[0], v[1])
 		}
 	}
-	// HANDED_TO_BUYER tidak boleh via PUT generik (hanya via verifikasi)
-	invalid := [][2]string{{"PENDING", "HANDED_TO_BUYER"}, {"DELIVERED_TO_KOPERASI", "HANDED_TO_BUYER"}, {"ACCEPTED", "HANDED_TO_BUYER"}}
+	// DELIVERED hanya via verifikasi, bukan PUT generik
+	invalid := [][2]string{{"PLEDGED", "DELIVERED"}, {"CONFIRMED", "DELIVERED"}}
 	for _, v := range invalid {
 		if allowed(forwardTransitions[v[0]], v[1]) {
 			t.Errorf("transisi %s→%s seharusnya DITOLAK di PUT generik", v[0], v[1])

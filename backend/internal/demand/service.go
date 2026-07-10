@@ -96,7 +96,7 @@ func (s *Service) Pledge(ctx context.Context, demandID, wargaID string, qty int,
 }
 
 func closedNote(status string) string {
-	if status == "CLOSED" {
+	if status == "FULFILLED" {
 		return " ✅ (kebutuhan TERPENUHI)"
 	}
 	return ""

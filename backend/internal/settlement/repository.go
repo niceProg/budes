@@ -39,7 +39,7 @@ func (r *Repository) feePercent(ctx context.Context) float64 {
 	return KoperasiFeePercent
 }
 
-// VerifyPledge (alur A): pembeli konfirmasi terima → HANDED_TO_BUYER + catat demand_transactions.
+// VerifyPledge (alur A): pembeli konfirmasi terima → DELIVERED + catat demand_transactions.
 func (r *Repository) VerifyPledge(ctx context.Context, pledgeID, buyerID string, qtyReceived *int) (*Txn, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -64,7 +64,7 @@ func (r *Repository) VerifyPledge(ctx context.Context, pledgeID, buyerID string,
 	if owner != buyerID {
 		return nil, ErrForbidden
 	}
-	if status != "DELIVERED_TO_KOPERASI" {
+	if status != "CONFIRMED" {
 		return nil, ErrBadState
 	}
 	qty := qtyPledged
@@ -78,7 +78,7 @@ func (r *Repository) VerifyPledge(ctx context.Context, pledgeID, buyerID string,
 	gross := float64(qty) * price
 	kfee, net := fee(gross, r.feePercent(ctx))
 
-	if _, err := tx.Exec(ctx, `UPDATE demand_pledges SET pledge_status='HANDED_TO_BUYER', qty_delivered=$2, user_update=$3 WHERE id=$1`,
+	if _, err := tx.Exec(ctx, `UPDATE demand_pledges SET pledge_status='DELIVERED', qty_delivered=$2, user_update=$3 WHERE id=$1`,
 		pledgeID, qty, buyerID); err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (r *Repository) VerifyPledge(ctx context.Context, pledgeID, buyerID string,
 	return &Txn{ID: id, Kind: "DEMAND", RefID: pledgeID, GrossAmount: gross, KoperasiFee: kfee, NetAmount: net, PaymentStatus: "UNPAID", WargaID: wargaID, BuyerID: buyerID}, nil
 }
 
-// VerifyOrder (alur B): pembeli konfirmasi terima → HANDED_OVER + catat supply_transactions.
+// VerifyOrder (alur B): pembeli konfirmasi terima → DONE + catat supply_transactions.
 func (r *Repository) VerifyOrder(ctx context.Context, orderID, buyerID string) (*Txn, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -119,7 +119,7 @@ func (r *Repository) VerifyOrder(ctx context.Context, orderID, buyerID string) (
 		return nil, ErrBadState
 	}
 	kfee, net := fee(total, r.feePercent(ctx))
-	if _, err := tx.Exec(ctx, `UPDATE orders SET order_status='HANDED_OVER', user_update=$2 WHERE id=$1`, orderID, buyerID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE orders SET order_status='DONE', user_update=$2 WHERE id=$1`, orderID, buyerID); err != nil {
 		return nil, err
 	}
 	var id string
@@ -214,7 +214,7 @@ func (r *Repository) UpdatePayment(ctx context.Context, kind, id, status string)
 func (r *Repository) List(ctx context.Context, actorID, actorRole string) ([]Txn, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT * FROM (
-			SELECT dt.id::text id, 'DEMAND' kind, dt.demand_pledge_id::text ref_id,
+			SELECT dt.id::text id, 'demand' kind, dt.demand_pledge_id::text ref_id,
 				dt.gross_amount::float8 gross, dt.koperasi_fee::float8 kfee, dt.net_amount::float8 net,
 				dt.payment_method method, dt.payment_status status, COALESCE(d.item_name,'') item_name,
 				d.buyer_id::text buyer_id, p.warga_id::text warga_id, dt.tanggal_input ts
@@ -222,7 +222,7 @@ func (r *Repository) List(ctx context.Context, actorID, actorRole string) ([]Txn
 			JOIN demand_pledges p ON p.id=dt.demand_pledge_id
 			JOIN demands d ON d.id=p.demand_id
 			UNION ALL
-			SELECT st.id::text, 'SUPPLY', st.order_id::text,
+			SELECT st.id::text, 'supply', st.order_id::text,
 				st.gross_amount::float8, st.koperasi_fee::float8, st.net_amount::float8,
 				st.payment_method, st.payment_status, COALESCE(l.item_name,''),
 				o.buyer_id::text, l.warga_id::text, st.tanggal_input

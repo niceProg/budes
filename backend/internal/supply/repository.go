@@ -12,7 +12,7 @@ import (
 var (
 	ErrNotFound      = errors.New("listing tidak ditemukan")
 	ErrOrderNotFound = errors.New("pesanan tidak ditemukan")
-	ErrNotPosted     = errors.New("listing tidak tersedia untuk dipesan (harus POSTED)")
+	ErrNotPosted     = errors.New("listing tidak tersedia untuk dipesan (harus ACTIVE)")
 	ErrOverOrder     = errors.New("jumlah melebihi stok tersedia")
 	ErrForbidden     = errors.New("tidak berhak atas aksi ini")
 	ErrBadTransition = errors.New("transisi status tidak valid")
@@ -49,7 +49,7 @@ func (r *Repository) CreateListing(ctx context.Context, wargaID string, in Creat
 	return id, err
 }
 
-// List mengembalikan listing status tertentu (default etalase POSTED), berpaginasi.
+// List mengembalikan listing status tertentu (default etalase ACTIVE), berpaginasi.
 func (r *Repository) List(ctx context.Context, statuses []string, limit, offset int) ([]Listing, error) {
 	rows, err := r.pool.Query(ctx, `SELECT `+listingCols+` FROM supply_listings
 		WHERE listing_status = ANY($1) ORDER BY tanggal_input DESC LIMIT $2 OFFSET $3`, statuses, limit, offset)
@@ -93,9 +93,9 @@ func (r *Repository) GetListing(ctx context.Context, id string) (*Listing, error
 }
 
 var listingTransitions = map[string][]string{
-	"DRAFT":    {"POSTED", "CLOSED"},
-	"POSTED":   {"CLOSED", "SOLD_OUT"},
-	"SOLD_OUT": {"CLOSED", "POSTED"},
+	"ACTIVE":   {"SOLD_OUT", "INACTIVE"},
+	"SOLD_OUT": {"ACTIVE", "INACTIVE"},
+	"INACTIVE": {"ACTIVE"},
 }
 
 // SetListingStatus mengubah status listing (pemilik/admin).
@@ -137,7 +137,7 @@ func (r *Repository) CreateOrder(ctx context.Context, listingID, buyerID string,
 	if err != nil {
 		return nil, err
 	}
-	if status != "POSTED" {
+	if status != "ACTIVE" {
 		return nil, ErrNotPosted
 	}
 	if qty > avail-sold {
@@ -152,7 +152,7 @@ func (r *Repository) CreateOrder(ctx context.Context, listingID, buyerID string,
 		return nil, err
 	}
 	newSold := sold + qty
-	newStatus := "POSTED"
+	newStatus := "ACTIVE"
 	if newSold >= avail {
 		newStatus = "SOLD_OUT"
 	}
@@ -164,7 +164,7 @@ func (r *Repository) CreateOrder(ctx context.Context, listingID, buyerID string,
 		return nil, err
 	}
 	return &Order{ID: oid, ListingID: listingID, BuyerID: buyerID, ItemName: itemName,
-		QtyOrdered: qty, PricePerItem: price, TotalAmount: total, OrderStatus: "PENDING"}, nil
+		QtyOrdered: qty, PricePerItem: price, TotalAmount: total, OrderStatus: "BARU"}, nil
 }
 
 // OrdersByBuyer mengembalikan pesanan milik pembeli.
@@ -204,9 +204,9 @@ func (r *Repository) GetOrder(ctx context.Context, id string) (*Order, error) {
 	return &o, err
 }
 
-// orderTransitions untuk PUT generik. HANDED_OVER hanya via endpoint verifikasi (Modul D).
+// orderTransitions untuk PUT generik. DONE hanya via endpoint verifikasi (Modul D).
 var orderTransitions = map[string][]string{
-	"PENDING":   {"CONFIRMED", "CANCELLED"},
+	"BARU":   {"CONFIRMED", "CANCELLED"},
 	"CONFIRMED": {"CANCELLED"},
 }
 
@@ -240,7 +240,7 @@ func (r *Repository) SetOrderStatus(ctx context.Context, id, actorID, actorRole,
 	if newStatus == "CANCELLED" {
 		if _, err := tx.Exec(ctx, `UPDATE supply_listings
 			SET qty_sold = GREATEST(qty_sold-$2,0),
-			    listing_status = CASE WHEN listing_status='SOLD_OUT' THEN 'POSTED' ELSE listing_status END
+			    listing_status = CASE WHEN listing_status='SOLD_OUT' THEN 'ACTIVE' ELSE listing_status END
 			WHERE id=$1`, listingID, qty); err != nil {
 			return err
 		}

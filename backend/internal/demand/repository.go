@@ -195,7 +195,7 @@ func (r *Repository) CreatePledge(ctx context.Context, demandID, wargaID string,
 	newFulfilled := fulfilled + qty
 	newStatus := "PARTIAL"
 	if newFulfilled >= total {
-		newStatus = "CLOSED"
+		newStatus = "FULFILLED"
 	}
 	if _, err := tx.Exec(ctx, `UPDATE demands SET fulfilled_qty=$2, demand_status=$3 WHERE id=$1`,
 		demandID, newFulfilled, newStatus); err != nil {
@@ -204,13 +204,13 @@ func (r *Repository) CreatePledge(ctx context.Context, demandID, wargaID string,
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	return &Pledge{ID: pid, DemandID: demandID, WargaID: wargaID, QtyPledged: qty, PricePerItem: price, PledgeStatus: "PENDING"}, nil
+	return &Pledge{ID: pid, DemandID: demandID, WargaID: wargaID, QtyPledged: qty, PricePerItem: price, PledgeStatus: "PLEDGED"}, nil
 }
 
-// forwardTransitions untuk PUT generik. HANDED_TO_BUYER hanya via endpoint verifikasi (Modul D).
+// forwardTransitions untuk PUT generik. DELIVERED hanya via endpoint verifikasi (Modul D).
 var forwardTransitions = map[string][]string{
-	"PENDING":  {"ACCEPTED", "CANCELLED"},
-	"ACCEPTED": {"DELIVERED_TO_KOPERASI", "CANCELLED"},
+	"PLEDGED":   {"CONFIRMED", "CANCELLED"},
+	"CONFIRMED": {"CANCELLED"},
 }
 
 // UpdatePledgeStatus memvalidasi transisi & otorisasi, lalu memperbarui status.
@@ -266,13 +266,13 @@ func releaseQty(ctx context.Context, tx pgx.Tx, demandID string, qty int) error 
 	if fulfilled == 0 {
 		status = "OPEN"
 	} else if fulfilled >= total {
-		status = "CLOSED"
+		status = "FULFILLED"
 	}
 	_, err := tx.Exec(ctx, `UPDATE demands SET fulfilled_qty=$2, demand_status=$3 WHERE id=$1`, demandID, fulfilled, status)
 	return err
 }
 
-// Cancel membatalkan demand oleh pembeli: DP PAID → FORFEITED, status → EXPIRED.
+// Cancel membatalkan demand oleh pembeli: DP PAID → FORFEITED, status → CANCELLED.
 func (r *Repository) Cancel(ctx context.Context, id, buyerID string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -292,24 +292,24 @@ func (r *Repository) Cancel(ctx context.Context, id, buyerID string) error {
 	if owner != buyerID {
 		return ErrForbidden
 	}
-	if status == "CLOSED" || status == "EXPIRED" {
+	if status == "FULFILLED" || status == "CANCELLED" {
 		return ErrBadTransition
 	}
 	newDP := dpStatus
 	if dpStatus == "PAID" {
 		newDP = "FORFEITED"
 	}
-	_, err = tx.Exec(ctx, `UPDATE demands SET demand_status='EXPIRED', dp_status=$2, user_update=$3 WHERE id=$1`, id, newDP, buyerID)
+	_, err = tx.Exec(ctx, `UPDATE demands SET demand_status='CANCELLED', dp_status=$2, user_update=$3 WHERE id=$1`, id, newDP, buyerID)
 	if err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
 }
 
-// ExpireDemand (ADMIN_KOPERASI): akhiri demand yang gagal → EXPIRED + DP REFUNDED (bila sudah PAID).
+// ExpireDemand (ADMIN_KOPERASI): akhiri demand yang gagal → CANCELLED + DP REFUNDED (bila sudah PAID).
 func (r *Repository) ExpireDemand(ctx context.Context, id string) (int64, error) {
 	ct, err := r.pool.Exec(ctx, `UPDATE demands
-		SET demand_status='EXPIRED',
+		SET demand_status='CANCELLED',
 		    dp_status = CASE WHEN dp_status='PAID' THEN 'REFUNDED' ELSE dp_status END
 		WHERE id=$1 AND demand_status IN ('DRAFT','OPEN','PARTIAL')`, id)
 	if err != nil {
