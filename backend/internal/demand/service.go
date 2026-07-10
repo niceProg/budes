@@ -12,6 +12,14 @@ import (
 
 const defaultDPPercent = 30.0
 
+// computeDP menghitung total harga, uang muka (30%), dan sisa pelunasan.
+func computeDP(qty int, price float64) (total, dp, remaining float64) {
+	total = float64(qty) * price
+	dp = math.Round(total*defaultDPPercent) / 100 // 30% dibulatkan 2 desimal
+	remaining = total - dp
+	return
+}
+
 // Service berisi logika bisnis alur Demand.
 type Service struct {
 	repo     *Repository
@@ -29,9 +37,7 @@ func (s *Service) Create(ctx context.Context, buyerID string, in CreateInput) (*
 	if in.ItemName == "" || in.TotalQty <= 0 || in.TargetPricePerItem <= 0 {
 		return nil, errors.New("item_name, total_qty > 0, dan target_price_per_item > 0 wajib")
 	}
-	totalPrice := float64(in.TotalQty) * in.TargetPricePerItem
-	dpAmount := math.Round(totalPrice*defaultDPPercent) / 100 // 30% dibulatkan 2 desimal
-	remaining := totalPrice - dpAmount
+	totalPrice, dpAmount, remaining := computeDP(in.TotalQty, in.TargetPricePerItem)
 
 	id, err := s.repo.Create(ctx, buyerID, in, totalPrice, dpAmount, remaining)
 	if err != nil {
