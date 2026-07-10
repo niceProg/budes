@@ -1,0 +1,67 @@
+erDiagram
+    USERS ||--o| WALLETS : "has"
+    USERS ||--o{ DEMANDS : "buyer creates"
+    USERS ||--o{ FULFILLMENTS : "producer pledges"
+    USERS ||--o{ DISPUTES : "reports"
+    DEMANDS ||--o{ FULFILLMENTS : "contains"
+    FULFILLMENTS ||--o| TRANSACTIONS : "triggers escrow/payout"
+    FULFILLMENTS ||--o| DISPUTES : "may have"
+
+    USERS {
+        uuid id PK
+        string name
+        string email
+        string password_hash
+        enum role "BUYER, PRODUCER, KOPERASI"
+        datetime created_at
+    }
+
+    WALLETS {
+        uuid id PK
+        uuid user_id FK
+        decimal balance
+        datetime updated_at
+    }
+
+    DEMANDS {
+        uuid id PK
+        uuid buyer_id FK
+        string item_name
+        int total_qty
+        int fulfilled_qty
+        decimal price_per_item
+        datetime deadline
+        enum status "OPEN, PARTIAL, CLOSED"
+        datetime created_at
+    }
+
+    FULFILLMENTS {
+        uuid id PK
+        uuid demand_id FK
+        uuid producer_id FK
+        int qty_pledged
+        int qty_received
+        enum status "PENDING, SHIPPED, RECEIVED, DISPUTED"
+        datetime created_at
+    }
+
+    TRANSACTIONS {
+        uuid id PK
+        uuid fulfillment_id FK
+        decimal amount
+        decimal koperasi_fee
+        decimal net_amount
+        enum status "ON_HOLD, RELEASED, REFUNDED"
+        datetime created_at
+        datetime updated_at
+    }
+
+    DISPUTES {
+        uuid id PK
+        uuid fulfillment_id FK
+        uuid reported_by FK
+        string reason
+        enum status "OPEN, REVIEW, RESOLVED"
+        string resolution
+        datetime created_at
+    }

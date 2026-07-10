@@ -1,7 +1,6 @@
 archive
 features
 mcp-server
-*.mermaid
 .md
 .claude
 docs
