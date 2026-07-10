@@ -22,9 +22,8 @@ import (
 )
 
 // New membangun handler HTTP lengkap dengan rute & middleware.
-func New(pools *db.Pools, cfg config.Config) http.Handler {
+func New(pools *db.Pools, cfg config.Config, notifier *notify.Notifier) http.Handler {
 	mux := http.NewServeMux()
-	notifier := notify.New(cfg.WA)
 
 	h := health.New(pools)
 	mux.HandleFunc("GET /health", h.Check)

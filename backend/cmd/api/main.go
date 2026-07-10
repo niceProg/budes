@@ -11,6 +11,8 @@ import (
 
 	"budes/internal/config"
 	"budes/internal/db"
+	"budes/internal/notify"
+	"budes/internal/scheduler"
 	"budes/internal/server"
 )
 
@@ -27,11 +29,16 @@ func main() {
 	defer pools.Close()
 	log.Println("terkoneksi: App DB + Reference DB")
 
+	notifier := notify.New(cfg.WA)
+
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           server.New(pools, cfg),
+		Handler:           server.New(pools, cfg, notifier),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
+
+	// Tugas latar belakang: pengingat tenggat (H-24).
+	go scheduler.New(pools.App, notifier).Start(ctx)
 
 	go func() {
 		log.Printf("API mendengarkan di :%s", cfg.Port)
