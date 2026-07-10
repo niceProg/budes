@@ -1,7 +1,11 @@
 // Package config memuat konfigurasi aplikasi dari environment (dua-DB, PRD §5).
 package config
 
-import "os"
+import (
+	"bufio"
+	"os"
+	"strings"
+)
 
 // Config menampung seluruh setting runtime backend Budes.
 type Config struct {
@@ -23,19 +27,45 @@ type WAConfig struct {
 // Enabled: WA aktif bila base URL & API key terisi.
 func (w WAConfig) Enabled() bool { return w.BaseURL != "" && w.APIKey != "" }
 
-// Load membaca konfigurasi dari environment dengan fallback default dev lokal.
+// Load membaca konfigurasi dari environment (memuat .env bila ada) + fallback dev lokal.
 func Load() Config {
+	loadDotEnv(".env")
 	return Config{
 		Port:      getenv("PORT", "8080"),
 		AppDSN:    getenv("APP_DATABASE_URL", "postgres://budes:budes@localhost:5434/budes_app"),
 		RefDSN:    getenv("REF_DATABASE_URL", "postgres://budes:budes@localhost:5433/hackathon_2026"),
 		JWTSecret: getenv("JWT_SECRET", "budes-dev-secret-change-me"),
 		WA: WAConfig{
-			BaseURL:     getenv("WA_BASE_URL", ""),
+			BaseURL:     strings.TrimRight(getenv("WA_BASE_URL", ""), "/"), // buang trailing slash
 			Session:     getenv("WA_SESSION", "default"),
 			APIKey:      getenv("WA_API_KEY", ""), // jangan hardcode: set via env
 			GroupChatID: getenv("WA_GROUP_CHAT_ID", "120363428225078710@g.us"),
 		},
+	}
+}
+
+// loadDotEnv memuat file .env (KEY=VALUE) tanpa menimpa env yang sudah ada. No-op bila tak ada.
+func loadDotEnv(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		k, v, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		k = strings.TrimSpace(k)
+		v = strings.Trim(strings.TrimSpace(v), `"'`)
+		if _, exists := os.LookupEnv(k); !exists {
+			_ = os.Setenv(k, v)
+		}
 	}
 }
 
