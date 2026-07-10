@@ -1,32 +1,21 @@
 erDiagram
-    %% ============================================================
-    %% Koperasi Desa = HUB/Perantara. Dua alur:
-    %%   (A) DEMAND  : Buyer minta barang -> disebar ke warga -> warga penuhi -> setor ke koperasi
-    %%   (B) SUPPLY  : Warga punya komoditas -> koperasi posting listing -> buyer pesan
-    %% Transaksi OFFLINE -> tidak ada wallet/escrow, hanya dicatat + fee koperasi.
-    %% ============================================================
-
-    KOPERASI ||--o{ USERS           : "menaungi warga & admin"
-    KOPERASI ||--o{ DEMANDS         : "mengelola"
+    KOPERASI ||--o{ USERS : "menaungi warga & admin"
+    USERS ||--o{ VERIFICATIONS : "mengajukan verifikasi"
+    KOPERASI ||--o{ DEMANDS : "mengelola"
     KOPERASI ||--o{ SUPPLY_LISTINGS : "memposting"
-
-    USERS ||--o{ DEMANDS         : "buyer membuat"
-    USERS ||--o{ DEMAND_PLEDGES  : "warga menyanggupi"
+    USERS ||--o{ DEMANDS : "buyer membuat"
+    USERS ||--o{ DEMAND_PLEDGES : "warga menyanggupi"
     USERS ||--o{ SUPPLY_LISTINGS : "warga menitipkan"
-    USERS ||--o{ ORDERS          : "buyer memesan"
-    USERS ||--o{ DISPUTES        : "melapor"
-
-    KOMODITAS ||--o{ DEMANDS         : "acuan"
+    USERS ||--o{ ORDERS : "buyer memesan"
+    USERS ||--o{ DISPUTES : "melapor"
+    KOMODITAS ||--o{ DEMANDS : "acuan"
     KOMODITAS ||--o{ SUPPLY_LISTINGS : "acuan"
-
-    DEMANDS         ||--o{ DEMAND_PLEDGES : "dipenuhi oleh"
-    SUPPLY_LISTINGS ||--o{ ORDERS        : "dipesan via"
-
-    DEMAND_PLEDGES ||--o| DEMAND_TRANSACTIONS : "menghasilkan (alur A)"
-    ORDERS         ||--o| SUPPLY_TRANSACTIONS : "menghasilkan (alur B)"
-
-    DEMAND_PLEDGES ||--o| DISPUTES : "dapat disengketakan (alur A)"
-    ORDERS         ||--o| DISPUTES : "dapat disengketakan (alur B)"
+    DEMANDS ||--o{ DEMAND_PLEDGES : "dipenuhi oleh"
+    SUPPLY_LISTINGS ||--o{ ORDERS : "dipesan via"
+    DEMAND_PLEDGES ||--o| DEMAND_TRANSACTIONS : "menghasilkan alur A"
+    ORDERS ||--o| SUPPLY_TRANSACTIONS : "menghasilkan alur B"
+    DEMAND_PLEDGES ||--o| DISPUTES : "sengketa alur A"
+    ORDERS ||--o| DISPUTES : "sengketa alur B"
 
     KOPERASI {
         uuid id PK
@@ -34,7 +23,7 @@ erDiagram
         string desa
         string wilayah
         string kontak
-        tinyint status "1=aktif, 9=hapus"
+        tinyint status "1=aktif 9=hapus"
         datetime created_at
     }
 
@@ -45,19 +34,36 @@ erDiagram
         string phone
         string email
         string password_hash
-        enum role "BUYER, WARGA, ADMIN_KOPERASI"
-        tinyint status "1=aktif, 9=hapus"
+        enum role "BUYER WARGA ADMIN_KOPERASI"
+        enum verification_status "UNVERIFIED PENDING VERIFIED REJECTED"
+        datetime verified_at
+        tinyint status "1=aktif 9=hapus"
         datetime created_at
+    }
+
+    VERIFICATIONS {
+        uuid id PK
+        uuid user_id FK "buyer atau warga pengaju"
+        string nik "no identitas"
+        string id_card_file "foto KTP"
+        string support_doc_file "dokumen pendukung opsional"
+        enum status "PENDING VERIFIED REJECTED"
+        uuid reviewed_by FK "ADMIN_KOPERASI"
+        string review_note
+        datetime reviewed_at
+        string user_input
+        datetime tanggal_input
+        string user_update
+        datetime tanggal_update
     }
 
     KOMODITAS {
         uuid id PK
         string nama
         string kategori
-        string satuan "kg, ikat, karung, dll"
+        string satuan "kg ikat karung dll"
     }
 
-    %% ---------- ALUR A: DEMAND ----------
     DEMANDS {
         uuid id PK
         uuid buyer_id FK
@@ -68,8 +74,15 @@ erDiagram
         int total_qty
         int fulfilled_qty
         decimal target_price_per_item
+        decimal total_price "total_qty x harga"
+        decimal dp_percent "default 30"
+        decimal dp_amount "30 persen x total_price"
+        decimal remaining_amount "total_price - dp_amount"
+        enum dp_payment_method "CASH TRANSFER"
+        enum dp_status "UNPAID PAID FORFEITED REFUNDED"
+        datetime dp_paid_at
         datetime deadline
-        enum demand_status "OPEN, PARTIAL, CLOSED, EXPIRED"
+        enum demand_status "DRAFT OPEN PARTIAL CLOSED EXPIRED"
         string user_input
         datetime tanggal_input
         string user_update
@@ -81,16 +94,15 @@ erDiagram
         uuid demand_id FK
         uuid warga_id FK "producer"
         int qty_pledged
-        int qty_delivered "qty yg sudah disetor ke koperasi"
+        int qty_delivered "qty disetor ke koperasi"
         decimal price_per_item "harga sepakat warga"
-        enum pledge_status "PENDING, ACCEPTED, DELIVERED_TO_KOPERASI, HANDED_TO_BUYER, CANCELLED"
+        enum pledge_status "PENDING ACCEPTED DELIVERED_TO_KOPERASI HANDED_TO_BUYER CANCELLED"
         string user_input
         datetime tanggal_input
         string user_update
         datetime tanggal_update
     }
 
-    %% ---------- ALUR B: SUPPLY ----------
     SUPPLY_LISTINGS {
         uuid id PK
         uuid koperasi_id FK
@@ -101,7 +113,7 @@ erDiagram
         int qty_available
         int qty_sold
         decimal price_per_item
-        enum listing_status "DRAFT, POSTED, SOLD_OUT, CLOSED"
+        enum listing_status "DRAFT POSTED SOLD_OUT CLOSED"
         string user_input
         datetime tanggal_input
         string user_update
@@ -115,22 +127,21 @@ erDiagram
         int qty_ordered
         decimal price_per_item "snapshot harga saat pesan"
         decimal total_amount
-        enum order_status "PENDING, CONFIRMED, HANDED_OVER, CANCELLED"
+        enum order_status "PENDING CONFIRMED HANDED_OVER CANCELLED"
         string user_input
         datetime tanggal_input
         string user_update
         datetime tanggal_update
     }
 
-    %% ---------- CATATAN TRANSAKSI OFFLINE (terpisah per alur) ----------
     DEMAND_TRANSACTIONS {
         uuid id PK
         uuid demand_pledge_id FK
         decimal gross_amount "dibayar buyer"
         decimal koperasi_fee
         decimal net_amount "diterima warga"
-        enum payment_method "CASH, TRANSFER"
-        enum payment_status "UNPAID, PAID, SETTLED"
+        enum payment_method "CASH TRANSFER"
+        enum payment_status "UNPAID PAID SETTLED"
         datetime paid_at
         string user_input
         datetime tanggal_input
@@ -144,8 +155,8 @@ erDiagram
         decimal gross_amount "dibayar buyer"
         decimal koperasi_fee
         decimal net_amount "diterima warga"
-        enum payment_method "CASH, TRANSFER"
-        enum payment_status "UNPAID, PAID, SETTLED"
+        enum payment_method "CASH TRANSFER"
+        enum payment_status "UNPAID PAID SETTLED"
         datetime paid_at
         string user_input
         datetime tanggal_input
@@ -153,15 +164,14 @@ erDiagram
         datetime tanggal_update
     }
 
-    %% ---------- SENGKETA / KOMPLAIN (lintas alur) ----------
     DISPUTES {
         uuid id PK
-        uuid demand_pledge_id FK "isi jika alur A (null jika B)"
-        uuid order_id FK "isi jika alur B (null jika A)"
-        enum source_type "DEMAND, SUPPLY"
-        uuid reported_by FK "USERS: buyer/warga pelapor"
+        uuid demand_pledge_id FK "isi jika alur A"
+        uuid order_id FK "isi jika alur B"
+        enum source_type "DEMAND SUPPLY"
+        uuid reported_by FK "buyer atau warga pelapor"
         string reason
-        enum dispute_status "OPEN, REVIEW, RESOLVED"
+        enum dispute_status "OPEN REVIEW RESOLVED"
         string resolution "keputusan koperasi"
         datetime resolved_at
         string user_input
