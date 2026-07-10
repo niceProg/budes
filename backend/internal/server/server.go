@@ -11,6 +11,7 @@ import (
 	"budes/internal/demand"
 	"budes/internal/health"
 	"budes/internal/reference"
+	"budes/internal/supply"
 )
 
 // New membangun handler HTTP lengkap dengan rute & middleware.
@@ -50,6 +51,18 @@ func New(pools *db.Pools, jwtSecret string) http.Handler {
 	mux.Handle("POST /api/demands/{id}/pledges", role(dH.CreatePledge, "WARGA"))
 	mux.Handle("GET /api/pledges", auth1(dH.MyPledges))
 	mux.Handle("PUT /api/pledges/{id}", auth1(dH.UpdatePledge))
+
+	// --- Supply (Modul C, alur B) ---
+	sH := supply.NewHandler(supply.NewRepository(pools.App))
+	mux.HandleFunc("GET /api/listings", sH.List)             // publik
+	mux.HandleFunc("GET /api/listings/{id}", sH.Detail)      // publik
+	mux.Handle("POST /api/listings", role(sH.CreateListing, "WARGA", "ADMIN_KOPERASI"))
+	mux.Handle("PUT /api/listings/{id}", auth1(sH.SetListingStatus))
+	mux.Handle("GET /api/my/listings", auth1(sH.MyListings))
+	mux.Handle("POST /api/orders", role(sH.CreateOrder, "BUYER"))
+	mux.Handle("GET /api/orders", role(sH.MyOrders, "BUYER"))
+	mux.Handle("GET /api/orders/{id}", auth1(sH.OrderDetail))
+	mux.Handle("PUT /api/orders/{id}", auth1(sH.SetOrderStatus))
 
 	return chain(mux, recoverMW, logger, cors)
 }
