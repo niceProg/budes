@@ -20,7 +20,8 @@ var (
 
 const demandCols = `id::text, buyer_id::text, koperasi_id::text, komoditas_id::text, item_name, satuan,
 	total_qty, fulfilled_qty, target_price_per_item::float8, total_price::float8, dp_percent::float8,
-	dp_amount::float8, remaining_amount::float8, dp_payment_method, dp_status, dp_paid_at, deadline, demand_status`
+	dp_amount::float8, remaining_amount::float8, dp_payment_method, dp_status, dp_paid_at,
+	to_char(deadline,'YYYY-MM-DD'), demand_status`
 
 // Repository operasi tabel demands & demand_pledges.
 type Repository struct{ pool *pgxpool.Pool }
@@ -30,13 +31,15 @@ func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: po
 
 func scanDemand(row pgx.Row) (*Demand, error) {
 	var d Demand
-	err := row.Scan(&d.ID, &d.BuyerID, &d.KoperasiID, &d.KomoditasID, &d.ItemName, &d.Satuan,
-		&d.TotalQty, &d.FulfilledQty, &d.TargetPricePerItem, &d.TotalPrice, &d.DPPercent,
-		&d.DPAmount, &d.RemainingAmount, &d.DPPaymentMethod, &d.DPStatus, &d.DPPaidAt,
-		&d.Deadline, &d.DemandStatus)
+	err := row.Scan(&d.ID, &d.Owner, &d.KoperasiID, &d.KomoditasID, &d.ItemName, &d.Satuan,
+		&d.Total, &d.Fulfilled, &d.Harga, &d.TotalPrice, &d.DPPercent,
+		&d.DPAmount, &d.RemainingAmount, &d.Method, &d.DP, &d.DPPaidAt,
+		&d.Deadline, &d.Status)
 	if err != nil {
 		return nil, err
 	}
+	d.Pledges = []Pledge{}
+	d.Kandidat = []Kandidat{}
 	return &d, nil
 }
 
@@ -134,25 +137,34 @@ func (r *Repository) PledgesByDemand(ctx context.Context, demandID string) ([]Pl
 	return scanPledges(rows)
 }
 
-// PledgesByWarga mengambil sanggupan milik seorang warga.
-func (r *Repository) PledgesByWarga(ctx context.Context, wargaID string) ([]Pledge, error) {
+// PledgesByWarga mengambil sanggupan milik seorang warga (bentuk PledgeRow untuk GET /api/pledges).
+func (r *Repository) PledgesByWarga(ctx context.Context, wargaID string) ([]PledgeRow, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT p.id::text, p.demand_id::text, p.warga_id::text, '',
-			p.qty_pledged, p.qty_delivered, p.price_per_item::float8, p.pledge_status
-		FROM demand_pledges p WHERE p.warga_id=$1 ORDER BY p.tanggal_input DESC`, wargaID)
+		SELECT p.id::text, p.warga_id::text, p.demand_id::text, COALESCE(d.item_name,''),
+			p.qty_pledged, d.satuan, p.pledge_status
+		FROM demand_pledges p LEFT JOIN demands d ON d.id = p.demand_id
+		WHERE p.warga_id=$1 ORDER BY p.tanggal_input DESC`, wargaID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	return scanPledges(rows)
+	out := []PledgeRow{}
+	for rows.Next() {
+		var p PledgeRow
+		if err := rows.Scan(&p.ID, &p.Owner, &p.DemandID, &p.Item, &p.Qty, &p.Satuan, &p.Status); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 func scanPledges(rows pgx.Rows) ([]Pledge, error) {
 	out := []Pledge{}
 	for rows.Next() {
 		var p Pledge
-		if err := rows.Scan(&p.ID, &p.DemandID, &p.WargaID, &p.WargaName,
-			&p.QtyPledged, &p.QtyDelivered, &p.PricePerItem, &p.PledgeStatus); err != nil {
+		if err := rows.Scan(&p.ID, &p.DemandID, &p.WargaID, &p.Name,
+			&p.Q, &p.D, &p.PricePerItem, &p.St); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -204,7 +216,7 @@ func (r *Repository) CreatePledge(ctx context.Context, demandID, wargaID string,
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	return &Pledge{ID: pid, DemandID: demandID, WargaID: wargaID, QtyPledged: qty, PricePerItem: price, PledgeStatus: "PLEDGED"}, nil
+	return &Pledge{ID: pid, DemandID: demandID, WargaID: wargaID, Q: qty, PricePerItem: price, St: "PLEDGED"}, nil
 }
 
 // forwardTransitions untuk PUT generik. DELIVERED hanya via endpoint verifikasi (Modul D).

@@ -18,8 +18,11 @@ var (
 	ErrBadTransition = errors.New("transisi status tidak valid")
 )
 
-const listingCols = `id::text, koperasi_id::text, warga_id::text, komoditas_id::text, item_name, satuan,
-	qty_available, qty_sold, price_per_item::float8, listing_status`
+const listingCols = `l.id::text, l.warga_id::text, COALESCE(u.name,''), l.koperasi_id::text, l.komoditas_id::text,
+	l.item_name, l.satuan, l.qty_available, l.qty_sold, l.price_per_item::float8, l.listing_status,
+	to_char(l.tanggal_input,'YYYY-MM-DD')`
+
+const listingFrom = ` FROM supply_listings l LEFT JOIN users u ON u.id = l.warga_id `
 
 // Repository operasi supply_listings & orders.
 type Repository struct{ pool *pgxpool.Pool }
@@ -29,8 +32,8 @@ func NewRepository(pool *pgxpool.Pool) *Repository { return &Repository{pool: po
 
 func scanListing(row pgx.Row) (*Listing, error) {
 	var l Listing
-	err := row.Scan(&l.ID, &l.KoperasiID, &l.WargaID, &l.KomoditasID, &l.ItemName, &l.Satuan,
-		&l.QtyAvailable, &l.QtySold, &l.PricePerItem, &l.ListingStatus)
+	err := row.Scan(&l.ID, &l.Owner, &l.Seller, &l.KoperasiID, &l.KomoditasID,
+		&l.ItemName, &l.Satuan, &l.Avail, &l.Sold, &l.Harga, &l.Status, &l.Tanggal)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +54,8 @@ func (r *Repository) CreateListing(ctx context.Context, wargaID string, in Creat
 
 // List mengembalikan listing status tertentu (default etalase ACTIVE), berpaginasi.
 func (r *Repository) List(ctx context.Context, statuses []string, limit, offset int) ([]Listing, error) {
-	rows, err := r.pool.Query(ctx, `SELECT `+listingCols+` FROM supply_listings
-		WHERE listing_status = ANY($1) ORDER BY tanggal_input DESC LIMIT $2 OFFSET $3`, statuses, limit, offset)
+	rows, err := r.pool.Query(ctx, `SELECT `+listingCols+listingFrom+`
+		WHERE l.listing_status = ANY($1) ORDER BY l.tanggal_input DESC LIMIT $2 OFFSET $3`, statuses, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -62,8 +65,8 @@ func (r *Repository) List(ctx context.Context, statuses []string, limit, offset 
 
 // ByWarga mengembalikan listing milik warga.
 func (r *Repository) ByWarga(ctx context.Context, wargaID string) ([]Listing, error) {
-	rows, err := r.pool.Query(ctx, `SELECT `+listingCols+` FROM supply_listings
-		WHERE warga_id=$1 ORDER BY tanggal_input DESC`, wargaID)
+	rows, err := r.pool.Query(ctx, `SELECT `+listingCols+listingFrom+`
+		WHERE l.warga_id=$1 ORDER BY l.tanggal_input DESC`, wargaID)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +88,7 @@ func collectListings(rows pgx.Rows) ([]Listing, error) {
 
 // GetListing mengambil satu listing.
 func (r *Repository) GetListing(ctx context.Context, id string) (*Listing, error) {
-	l, err := scanListing(r.pool.QueryRow(ctx, `SELECT `+listingCols+` FROM supply_listings WHERE id=$1`, id))
+	l, err := scanListing(r.pool.QueryRow(ctx, `SELECT `+listingCols+listingFrom+`WHERE l.id=$1`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -128,9 +131,10 @@ func (r *Repository) CreateOrder(ctx context.Context, listingID, buyerID string,
 
 	var avail, sold int
 	var status, itemName string
+	var satuan *string
 	var price float64
-	err = tx.QueryRow(ctx, `SELECT qty_available, qty_sold, price_per_item::float8, listing_status, item_name
-		FROM supply_listings WHERE id=$1 FOR UPDATE`, listingID).Scan(&avail, &sold, &price, &status, &itemName)
+	err = tx.QueryRow(ctx, `SELECT qty_available, qty_sold, price_per_item::float8, listing_status, item_name, satuan
+		FROM supply_listings WHERE id=$1 FOR UPDATE`, listingID).Scan(&avail, &sold, &price, &status, &itemName, &satuan)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -163,14 +167,14 @@ func (r *Repository) CreateOrder(ctx context.Context, listingID, buyerID string,
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	return &Order{ID: oid, ListingID: listingID, BuyerID: buyerID, ItemName: itemName,
-		QtyOrdered: qty, PricePerItem: price, TotalAmount: total, OrderStatus: "BARU"}, nil
+	return &Order{ID: oid, Owner: buyerID, ListingID: listingID, Item: itemName, Satuan: satuan,
+		Qty: qty, Harga: price, Total: total, Status: "BARU"}, nil
 }
 
 // OrdersByBuyer mengembalikan pesanan milik pembeli.
 func (r *Repository) OrdersByBuyer(ctx context.Context, buyerID string) ([]Order, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT o.id::text, o.listing_id::text, o.buyer_id::text, COALESCE(l.item_name,''),
+		SELECT o.id::text, o.buyer_id::text, o.listing_id::text, COALESCE(l.item_name,''), l.satuan,
 			o.qty_ordered, o.price_per_item::float8, o.total_amount::float8, o.order_status
 		FROM orders o LEFT JOIN supply_listings l ON l.id=o.listing_id
 		WHERE o.buyer_id=$1 ORDER BY o.tanggal_input DESC`, buyerID)
@@ -181,8 +185,8 @@ func (r *Repository) OrdersByBuyer(ctx context.Context, buyerID string) ([]Order
 	out := []Order{}
 	for rows.Next() {
 		var o Order
-		if err := rows.Scan(&o.ID, &o.ListingID, &o.BuyerID, &o.ItemName,
-			&o.QtyOrdered, &o.PricePerItem, &o.TotalAmount, &o.OrderStatus); err != nil {
+		if err := rows.Scan(&o.ID, &o.Owner, &o.ListingID, &o.Item, &o.Satuan,
+			&o.Qty, &o.Harga, &o.Total, &o.Status); err != nil {
 			return nil, err
 		}
 		out = append(out, o)
@@ -194,10 +198,10 @@ func (r *Repository) OrdersByBuyer(ctx context.Context, buyerID string) ([]Order
 func (r *Repository) GetOrder(ctx context.Context, id string) (*Order, error) {
 	var o Order
 	err := r.pool.QueryRow(ctx, `
-		SELECT o.id::text, o.listing_id::text, o.buyer_id::text, COALESCE(l.item_name,''),
+		SELECT o.id::text, o.buyer_id::text, o.listing_id::text, COALESCE(l.item_name,''), l.satuan,
 			o.qty_ordered, o.price_per_item::float8, o.total_amount::float8, o.order_status
 		FROM orders o LEFT JOIN supply_listings l ON l.id=o.listing_id WHERE o.id=$1`, id).
-		Scan(&o.ID, &o.ListingID, &o.BuyerID, &o.ItemName, &o.QtyOrdered, &o.PricePerItem, &o.TotalAmount, &o.OrderStatus)
+		Scan(&o.ID, &o.Owner, &o.ListingID, &o.Item, &o.Satuan, &o.Qty, &o.Harga, &o.Total, &o.Status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrOrderNotFound
 	}

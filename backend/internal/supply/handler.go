@@ -102,7 +102,7 @@ func (h *Handler) SetListingStatus(w http.ResponseWriter, r *http.Request) {
 				satuan = " " + *l.Satuan
 			}
 			h.notifier.Broadcast(fmt.Sprintf("🌾 *Komoditas Baru di Bursa Desa*\n%s — %d%s tersedia @Rp%.0f/item\n\nBeli sekarang di Budes!",
-				l.ItemName, l.QtyAvailable-l.QtySold, satuan, l.PricePerItem))
+				l.ItemName, l.Avail-l.Sold, satuan, l.Harga))
 		}
 	}
 	httpx.OK(w, "status listing diperbarui")

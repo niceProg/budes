@@ -25,7 +25,7 @@ func NewHandler(repo *Repository, notifier *notify.Notifier) *Handler {
 func (h *Handler) broadcastCair(t *Txn) {
 	h.notifier.Broadcast(fmt.Sprintf(
 		"✅ *Transaksi Selesai (%s)*\nBarang: %s\nDana cair ke warga: Rp%.0f\nKomisi koperasi: Rp%.0f",
-		t.Kind, t.ItemName, t.NetAmount, t.KoperasiFee))
+		t.Kind, t.Item, t.NetAmount, t.KoperasiFee))
 }
 
 // VerifyPledge: POST /api/pledges/{id}/verifikasi (BUYER)
