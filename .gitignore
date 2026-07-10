@@ -6,6 +6,8 @@ mcp-server
 
 # secrets & build artifacts
 .env
+deploy/.env.deploy
+deploy/prod/prod.env
 CLAUDE.md
 MEMORY.md
 

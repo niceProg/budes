@@ -1,0 +1,13 @@
+node_modules
+.nuxt
+.output
+.git
+.gitignore
+.npmrc
+pnpm-lock.yaml
+pnpm-workspace.yaml
+*.log
+.DS_Store
+Dockerfile
+.dockerignore
+README.md

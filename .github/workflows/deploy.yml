@@ -1,0 +1,64 @@
+name: Deploy ke VM (Docker)
+
+# Trigger: setiap push ke main (atau jalankan manual dari tab Actions).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Cegah dua deploy jalan bersamaan.
+concurrency:
+  group: deploy-vm
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: [self-hosted, budes-vm]     # runner terpasang di VM
+    env:
+      ENV_FILE: /home/yumna/budes-config/prod.env
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@v4
+
+      - name: Info lingkungan
+        run: |
+          echo "Commit  : $GITHUB_SHA"
+          echo "Pesan   : ${{ github.event.head_commit.message }}"
+          docker --version
+          docker compose version
+
+      - name: Build image (backend + frontend)
+        working-directory: deploy/prod
+        run: docker compose --env-file "$ENV_FILE" build
+
+      - name: Deploy (up -d)
+        working-directory: deploy/prod
+        run: docker compose --env-file "$ENV_FILE" up -d --remove-orphans
+
+      - name: Bersihkan image lama
+        run: docker image prune -f
+
+      - name: Health check
+        working-directory: deploy/prod
+        run: |
+          for i in $(seq 1 25); do
+            if curl -fsS http://localhost/health >/dev/null 2>&1; then
+              echo "✅ /health OK pada percobaan ke-$i"
+              curl -s http://localhost/health; echo
+              exit 0
+            fi
+            echo "⏳ menunggu service sehat... ($i/25)"; sleep 3
+          done
+          echo "❌ health check GAGAL"
+          exit 1
+
+      - name: Status container (selalu)
+        if: always()
+        working-directory: deploy/prod
+        run: docker compose --env-file "$ENV_FILE" ps
+
+      - name: Log container (hanya jika GAGAL — untuk debugging)
+        if: failure()
+        working-directory: deploy/prod
+        run: docker compose --env-file "$ENV_FILE" logs --tail=150 --no-color
