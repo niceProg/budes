@@ -10,9 +10,11 @@ import (
 	"budes/internal/db"
 	"budes/internal/demand"
 	"budes/internal/health"
+	"budes/internal/match"
 	"budes/internal/reference"
 	"budes/internal/settlement"
 	"budes/internal/supply"
+	"budes/internal/verification"
 )
 
 // New membangun handler HTTP lengkap dengan rute & middleware.
@@ -22,7 +24,8 @@ func New(pools *db.Pools, jwtSecret string) http.Handler {
 	h := health.New(pools)
 	mux.HandleFunc("GET /health", h.Check)
 
-	ref := reference.NewHandler(reference.NewRepository(pools.Ref))
+	refRepo := reference.NewRepository(pools.Ref)
+	ref := reference.NewHandler(refRepo)
 	mux.HandleFunc("GET /api/ref/koperasi", ref.SearchKoperasi)
 	mux.HandleFunc("GET /api/ref/anggota", ref.SearchAnggota)
 	mux.HandleFunc("GET /api/match/kandidat", ref.MatchKandidat)
@@ -43,7 +46,8 @@ func New(pools *db.Pools, jwtSecret string) http.Handler {
 	}
 
 	// --- Demand (Modul B, alur A) ---
-	dH := demand.NewHandler(demand.NewService(demand.NewRepository(pools.App)), demand.NewRepository(pools.App))
+	demandRepo := demand.NewRepository(pools.App)
+	dH := demand.NewHandler(demand.NewService(demandRepo), demandRepo)
 	mux.HandleFunc("GET /api/demands", dH.List)                 // publik
 	mux.HandleFunc("GET /api/demands/{id}", dH.Detail)          // publik
 	mux.Handle("POST /api/demands", role(dH.Create, "BUYER"))
@@ -74,6 +78,16 @@ func New(pools *db.Pools, jwtSecret string) http.Handler {
 	mux.Handle("GET /api/transactions", auth1(stH.List))
 	mux.Handle("PUT /api/transactions/{kind}/{id}", role(stH.UpdatePayment, "ADMIN_KOPERASI"))
 	mux.Handle("GET /api/pembukuan", role(stH.Pembukuan, "ADMIN_KOPERASI"))
+
+	// --- Verifikasi KYC (Modul A) ---
+	vH := verification.NewHandler(verification.NewRepository(pools.App))
+	mux.Handle("POST /api/verifikasi", auth1(vH.Submit))
+	mux.Handle("GET /api/verifikasi", role(vH.List, "ADMIN_KOPERASI"))
+	mux.Handle("PUT /api/verifikasi/{id}", role(vH.Review, "ADMIN_KOPERASI"))
+
+	// --- Matching grounded (Modul G) ---
+	mH := match.NewHandler(demandRepo, refRepo)
+	mux.HandleFunc("GET /api/demands/{id}/kandidat", mH.ByDemand) // publik
 
 	return chain(mux, recoverMW, logger, cors)
 }
