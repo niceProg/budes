@@ -17,6 +17,7 @@ type Verification struct {
 	ID             string  `json:"id"`
 	UserID         string  `json:"user_id"`
 	UserName       string  `json:"user_name,omitempty"`
+	Role           string  `json:"role,omitempty"` // peran pengaju (WARGA/BUYER) — untuk filter panel admin
 	NIK            *string `json:"nik"`
 	IDCardFile     *string `json:"id_card_file"`
 	SupportDocFile *string `json:"support_doc_file"`
@@ -53,7 +54,7 @@ func (r *Repository) Submit(ctx context.Context, userID string, nik, idCard, sup
 // List mengembalikan pengajuan (filter status opsional).
 func (r *Repository) List(ctx context.Context, status string) ([]Verification, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT v.id::text, v.user_id::text, COALESCE(u.name,''), v.nik, v.id_card_file,
+		SELECT v.id::text, v.user_id::text, COALESCE(u.name,''), COALESCE(u.role,''), v.nik, v.id_card_file,
 			v.support_doc_file, v.status, v.review_note
 		FROM verifications v LEFT JOIN users u ON u.id=v.user_id
 		WHERE ($1='' OR v.status=$1) ORDER BY v.tanggal_input DESC`, status)
@@ -64,7 +65,7 @@ func (r *Repository) List(ctx context.Context, status string) ([]Verification, e
 	out := []Verification{}
 	for rows.Next() {
 		var v Verification
-		if err := rows.Scan(&v.ID, &v.UserID, &v.UserName, &v.NIK, &v.IDCardFile,
+		if err := rows.Scan(&v.ID, &v.UserID, &v.UserName, &v.Role, &v.NIK, &v.IDCardFile,
 			&v.SupportDocFile, &v.Status, &v.ReviewNote); err != nil {
 			return nil, err
 		}

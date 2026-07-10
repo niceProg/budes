@@ -105,6 +105,19 @@ function mapUser(u: any): User {
   }
 }
 
+// Backend Verification -> Kyc frontend (untuk panel admin).
+function mapKyc(v: any): Kyc {
+  return {
+    id: v.id,
+    name: v.user_name || '(tanpa nama)',
+    role: v.role === 'BUYER' ? 'BUYER' : 'WARGA',
+    status: v.status,
+    nik: v.nik || '',
+    doc: v.support_doc_file || '',
+    ktpFile: v.id_card_file || '',
+  }
+}
+
 // Pesan error dari FetchError backend ({ error: "..." }) atau umum.
 function errMsg(e: any, fallback = 'Terjadi kesalahan. Coba lagi.'): string {
   return e?.data?.error || e?.data?.message || e?.message || fallback
@@ -201,6 +214,8 @@ export const useApp = defineStore('app', {
     dpMethod: 'TRANSFER' as 'TRANSFER' | 'CASH',
     titip: { item: '', satuan: 'kg', qty: '', harga: '' },
     titipErr: '',
+    kycForm: { nik: '', ktpFile: '', doc: '' },
+    kycErr: '',
     toast: '',
   }),
 
@@ -256,6 +271,16 @@ export const useApp = defineStore('app', {
       this.txns = r.transactions || []
       mergeById(this.demands, r.demands)
       mergeById(this.listings, r.listings)
+      if (this.user?.role === 'ADMIN_KOPERASI') await this.hydrateKyc()
+    },
+    // Panel KYC admin: muat pengajuan verifikasi dari API.
+    async hydrateKyc() {
+      const api = useApi()
+      if (!api.enabled || this.user?.role !== 'ADMIN_KOPERASI') return
+      try {
+        const list = await api.data<any[]>('/api/verifikasi')
+        this.kyc = (list || []).map(mapKyc)
+      } catch { /* biarkan data lama */ }
     },
     async loadDemand(id: string) {
       const api = useApi()
@@ -809,16 +834,60 @@ export const useApp = defineStore('app', {
       }
       this.showToast(pay === 'PAID' ? 'Transaksi ditandai Dibayar.' : 'Transaksi ditandai Selesai.')
     },
-    kycAct(id: string, ok: boolean) {
-      // Panel KYC admin masih lokal (bentuk verifikasi backend berbeda) — TODO integrasi.
-      const k = this.kyc.find((x) => x.id === id)
-      if (k) k.status = ok ? 'VERIFIED' : 'REJECTED'
+    async kycAct(id: string, ok: boolean) {
+      const api = useApi()
+      if (api.enabled) {
+        try {
+          await api.req(`/api/verifikasi/${id}`, { method: 'PUT', body: { status: ok ? 'VERIFIED' : 'REJECTED' } })
+          await this.hydrateKyc()
+        } catch (e) { this.showToast(errMsg(e)); return }
+      } else {
+        const k = this.kyc.find((x) => x.id === id)
+        if (k) k.status = ok ? 'VERIFIED' : 'REJECTED'
+      }
       if (this.modal === 'kycView') this.closeModal()
       this.showToast(ok ? 'Anggota diverifikasi — status: Terdaftar ✓' : 'Anggota ditolak — status: Ditolak.')
     },
     viewKyc(id: string) {
       this.activeKycId = id
       this.modal = 'kycView'
+    },
+    // Pengajuan KYC dari sisi user (warga/pembeli).
+    async submitKyc() {
+      const f = this.kycForm
+      const nik = f.nik.trim()
+      if (!/^\d{16}$/.test(nik)) {
+        this.kycErr = 'NIK harus 16 digit angka.'
+        return
+      }
+      const api = useApi()
+      if (!api.enabled) {
+        this.kycForm = { nik: '', ktpFile: '', doc: '' }
+        this.kycErr = ''
+        this.showToast('Pengajuan verifikasi terkirim (mode demo).')
+        navigateTo(routeFor('saya'))
+        return
+      }
+      this.busy = true
+      try {
+        await api.req('/api/verifikasi', {
+          method: 'POST',
+          body: {
+            nik,
+            id_card_file: f.ktpFile.trim() || null,
+            support_doc_file: f.doc.trim() || null,
+          },
+        })
+        if (this.user) this.user.ver = 'PENDING'
+        this.kycForm = { nik: '', ktpFile: '', doc: '' }
+        this.kycErr = ''
+        this.showToast('Pengajuan verifikasi terkirim. Menunggu tinjauan koperasi.')
+        navigateTo(routeFor('saya'))
+      } catch (e) {
+        this.kycErr = errMsg(e)
+      } finally {
+        this.busy = false
+      }
     },
 
     // ---- pengaturan batas harga komoditas (lokal — tak ada endpoint backend) ----

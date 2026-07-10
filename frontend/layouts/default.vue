@@ -56,6 +56,7 @@ const isActive = (p: string) => (p === '/' ? route.path === '/' : route.path.sta
           <NuxtLink to="/etalase" class="nav" :class="isActive('/etalase') ? 'nav-on' : 'nav-off'">Etalase</NuxtLink>
           <NuxtLink v-if="app.isWarga" to="/titip" class="nav" :class="isActive('/titip') ? 'nav-on' : 'nav-off'">Titip Komoditas</NuxtLink>
           <NuxtLink v-if="app.isLoggedIn" to="/aktivitas" class="nav" :class="isActive('/aktivitas') ? 'nav-on' : 'nav-off'">Aktivitasku</NuxtLink>
+          <NuxtLink v-if="app.isLoggedIn && !app.isAdmin" to="/verifikasi-identitas" class="nav" :class="isActive('/verifikasi-identitas') ? 'nav-on' : 'nav-off'">Verifikasi</NuxtLink>
         </nav>
 
         <div class="flex-1" />
