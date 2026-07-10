@@ -8,6 +8,7 @@ import (
 
 	"budes/internal/auth"
 	"budes/internal/db"
+	"budes/internal/demand"
 	"budes/internal/health"
 	"budes/internal/reference"
 )
@@ -32,6 +33,23 @@ func New(pools *db.Pools, jwtSecret string) http.Handler {
 	mux.HandleFunc("POST /api/auth/login", aH.Login)
 	mux.HandleFunc("POST /api/auth/logout", aH.Logout)
 	mux.Handle("GET /api/me", jwtMgr.Middleware(http.HandlerFunc(aH.Me)))
+
+	// helper: proteksi + batasan peran
+	auth1 := func(h http.HandlerFunc) http.Handler { return jwtMgr.Middleware(h) }
+	role := func(h http.HandlerFunc, roles ...string) http.Handler {
+		return jwtMgr.Middleware(auth.RequireRole(roles...)(http.HandlerFunc(h)))
+	}
+
+	// --- Demand (Modul B, alur A) ---
+	dH := demand.NewHandler(demand.NewService(demand.NewRepository(pools.App)), demand.NewRepository(pools.App))
+	mux.HandleFunc("GET /api/demands", dH.List)                 // publik
+	mux.HandleFunc("GET /api/demands/{id}", dH.Detail)          // publik
+	mux.Handle("POST /api/demands", role(dH.Create, "BUYER"))
+	mux.Handle("POST /api/demands/{id}/dp", role(dH.PayDP, "BUYER"))
+	mux.Handle("POST /api/demands/{id}/cancel", role(dH.Cancel, "BUYER"))
+	mux.Handle("POST /api/demands/{id}/pledges", role(dH.CreatePledge, "WARGA"))
+	mux.Handle("GET /api/pledges", auth1(dH.MyPledges))
+	mux.Handle("PUT /api/pledges/{id}", auth1(dH.UpdatePledge))
 
 	return chain(mux, recoverMW, logger, cors)
 }
