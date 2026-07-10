@@ -10,12 +10,12 @@ import (
 
 // Kesalahan domain.
 var (
-	ErrNotFound      = errors.New("demand tidak ditemukan")
-	ErrDemandNotOpen = errors.New("demand tidak menerima sanggupan (harus OPEN/PARTIAL)")
-	ErrOverPledge    = errors.New("jumlah melebihi sisa kebutuhan")
+	ErrNotFound       = errors.New("demand tidak ditemukan")
+	ErrDemandNotOpen  = errors.New("demand tidak menerima sanggupan (harus OPEN/PARTIAL)")
+	ErrOverPledge     = errors.New("jumlah melebihi sisa kebutuhan")
 	ErrPledgeNotFound = errors.New("sanggupan tidak ditemukan")
-	ErrForbidden     = errors.New("tidak berhak atas aksi ini")
-	ErrBadTransition = errors.New("transisi status tidak valid")
+	ErrForbidden      = errors.New("tidak berhak atas aksi ini")
+	ErrBadTransition  = errors.New("transisi status tidak valid")
 )
 
 const demandCols = `id::text, buyer_id::text, koperasi_id::text, komoditas_id::text, item_name, satuan,

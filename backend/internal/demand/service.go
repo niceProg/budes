@@ -84,5 +84,20 @@ func (s *Service) Pledge(ctx context.Context, demandID, wargaID string, qty int,
 	if qty <= 0 {
 		return nil, errors.New("qty_pledged harus > 0")
 	}
-	return s.repo.CreatePledge(ctx, demandID, wargaID, qty, price)
+	p, err := s.repo.CreatePledge(ctx, demandID, wargaID, qty, price)
+	if err != nil {
+		return nil, err
+	}
+	if d, e := s.repo.Get(ctx, demandID); e == nil && d != nil {
+		s.notifier.Broadcast(fmt.Sprintf("🤝 *Sanggupan Baru* untuk '%s'\nDisanggupi: %d — progres %d/%d%s",
+			d.ItemName, qty, d.FulfilledQty, d.TotalQty, closedNote(d.DemandStatus)))
+	}
+	return p, nil
+}
+
+func closedNote(status string) string {
+	if status == "CLOSED" {
+		return " ✅ (kebutuhan TERPENUHI)"
+	}
+	return ""
 }

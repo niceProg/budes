@@ -53,8 +53,8 @@ func New(pools *db.Pools, cfg config.Config) http.Handler {
 	// --- Demand (Modul B, alur A) ---
 	demandRepo := demand.NewRepository(pools.App)
 	dH := demand.NewHandler(demand.NewService(demandRepo, notifier), demandRepo)
-	mux.HandleFunc("GET /api/demands", dH.List)                 // publik
-	mux.HandleFunc("GET /api/demands/{id}", dH.Detail)          // publik
+	mux.HandleFunc("GET /api/demands", dH.List)        // publik
+	mux.HandleFunc("GET /api/demands/{id}", dH.Detail) // publik
 	mux.Handle("POST /api/demands", role(dH.Create, "BUYER"))
 	mux.Handle("POST /api/demands/{id}/dp", role(dH.PayDP, "BUYER"))
 	mux.Handle("POST /api/demands/{id}/cancel", role(dH.Cancel, "BUYER"))
@@ -65,9 +65,9 @@ func New(pools *db.Pools, cfg config.Config) http.Handler {
 
 	// --- Supply (Modul C, alur B) ---
 	supplyRepo := supply.NewRepository(pools.App)
-	sH := supply.NewHandler(supplyRepo)
-	mux.HandleFunc("GET /api/listings", sH.List)             // publik
-	mux.HandleFunc("GET /api/listings/{id}", sH.Detail)      // publik
+	sH := supply.NewHandler(supplyRepo, notifier)
+	mux.HandleFunc("GET /api/listings", sH.List)        // publik
+	mux.HandleFunc("GET /api/listings/{id}", sH.Detail) // publik
 	mux.Handle("POST /api/listings", role(sH.CreateListing, "WARGA", "ADMIN_KOPERASI"))
 	mux.Handle("PUT /api/listings/{id}", auth1(sH.SetListingStatus))
 	mux.Handle("GET /api/my/listings", auth1(sH.MyListings))
@@ -90,7 +90,7 @@ func New(pools *db.Pools, cfg config.Config) http.Handler {
 	mux.Handle("PUT /api/disputes/{id}", role(stH.ResolveDispute, "ADMIN_KOPERASI"))
 
 	// --- Verifikasi KYC (Modul A) ---
-	vH := verification.NewHandler(verification.NewRepository(pools.App))
+	vH := verification.NewHandler(verification.NewRepository(pools.App), notifier)
 	mux.Handle("POST /api/verifikasi", auth1(vH.Submit))
 	mux.Handle("GET /api/verifikasi", role(vH.List, "ADMIN_KOPERASI"))
 	mux.Handle("PUT /api/verifikasi/{id}", role(vH.Review, "ADMIN_KOPERASI"))
