@@ -3,17 +3,25 @@ package demand
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"strings"
+
+	"budes/internal/notify"
 )
 
 const defaultDPPercent = 30.0
 
 // Service berisi logika bisnis alur Demand.
-type Service struct{ repo *Repository }
+type Service struct {
+	repo     *Repository
+	notifier *notify.Notifier
+}
 
 // NewService membuat service demand.
-func NewService(repo *Repository) *Service { return &Service{repo: repo} }
+func NewService(repo *Repository, notifier *notify.Notifier) *Service {
+	return &Service{repo: repo, notifier: notifier}
+}
 
 // Create memvalidasi input, menghitung DP (30%), dan menyimpan demand DRAFT.
 func (s *Service) Create(ctx context.Context, buyerID string, in CreateInput) (*Demand, error) {
@@ -44,7 +52,25 @@ func (s *Service) PayDP(ctx context.Context, id, buyerID, method string) (*Deman
 	if n == 0 {
 		return nil, errors.New("DP tidak bisa dibayar (bukan milik Anda, atau bukan status DRAFT/UNPAID)")
 	}
-	return s.repo.Get(ctx, id)
+	d, err := s.repo.Get(ctx, id)
+	if err == nil && d != nil {
+		s.notifier.Broadcast(newDemandMessage(d)) // Broadcast Kebutuhan (fire-and-forget)
+	}
+	return d, err
+}
+
+// newDemandMessage merangkai teks broadcast "Kebutuhan Baru".
+func newDemandMessage(d *Demand) string {
+	satuan := ""
+	if d.Satuan != nil {
+		satuan = " " + *d.Satuan
+	}
+	harga := ""
+	if d.TargetPricePerItem != nil {
+		harga = fmt.Sprintf("\nHarga: Rp%.0f/item", *d.TargetPricePerItem)
+	}
+	return fmt.Sprintf("🛒 *Kebutuhan Baru di Bursa Desa*\nBarang: %s\nJumlah: %d%s%s\n\nAyo warga desa menyanggupi! 🌾",
+		d.ItemName, d.TotalQty, satuan, harga)
 }
 
 // Pledge menyanggupi demand (gotong royong).

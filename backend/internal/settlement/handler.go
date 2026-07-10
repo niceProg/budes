@@ -2,18 +2,31 @@ package settlement
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"budes/internal/auth"
 	"budes/internal/httpx"
+	"budes/internal/notify"
 )
 
 // Handler mengekspos endpoint serah-terima, transaksi, sengketa.
-type Handler struct{ repo *Repository }
+type Handler struct {
+	repo     *Repository
+	notifier *notify.Notifier
+}
 
 // NewHandler membuat handler settlement.
-func NewHandler(repo *Repository) *Handler { return &Handler{repo: repo} }
+func NewHandler(repo *Repository, notifier *notify.Notifier) *Handler {
+	return &Handler{repo: repo, notifier: notifier}
+}
+
+func (h *Handler) broadcastCair(t *Txn) {
+	h.notifier.Broadcast(fmt.Sprintf(
+		"✅ *Transaksi Selesai (%s)*\nBarang: %s\nDana cair ke warga: Rp%.0f\nKomisi koperasi: Rp%.0f",
+		t.Kind, t.ItemName, t.NetAmount, t.KoperasiFee))
+}
 
 // VerifyPledge: POST /api/pledges/{id}/verifikasi (BUYER)
 func (h *Handler) VerifyPledge(w http.ResponseWriter, r *http.Request) {
@@ -26,6 +39,7 @@ func (h *Handler) VerifyPledge(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
+	h.broadcastCair(t)
 	httpx.JSON(w, http.StatusCreated, map[string]any{"data": t})
 }
 
@@ -36,6 +50,7 @@ func (h *Handler) VerifyOrder(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
+	h.broadcastCair(t)
 	httpx.JSON(w, http.StatusCreated, map[string]any{"data": t})
 }
 

@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"budes/internal/auth"
+	"budes/internal/config"
 	"budes/internal/db"
 	"budes/internal/demand"
 	"budes/internal/health"
 	"budes/internal/match"
+	"budes/internal/notify"
 	"budes/internal/reference"
 	"budes/internal/settlement"
 	"budes/internal/supply"
@@ -18,8 +20,9 @@ import (
 )
 
 // New membangun handler HTTP lengkap dengan rute & middleware.
-func New(pools *db.Pools, jwtSecret string) http.Handler {
+func New(pools *db.Pools, cfg config.Config) http.Handler {
 	mux := http.NewServeMux()
+	notifier := notify.New(cfg.WA)
 
 	h := health.New(pools)
 	mux.HandleFunc("GET /health", h.Check)
@@ -31,7 +34,7 @@ func New(pools *db.Pools, jwtSecret string) http.Handler {
 	mux.HandleFunc("GET /api/match/kandidat", ref.MatchKandidat)
 
 	// --- Auth (Modul A) ---
-	jwtMgr := auth.NewManager(jwtSecret)
+	jwtMgr := auth.NewManager(cfg.JWTSecret)
 	aRepo := auth.NewRepository(pools.App)
 	aH := auth.NewHandler(auth.NewService(aRepo, jwtMgr), aRepo)
 	mux.HandleFunc("POST /api/auth/register", aH.Register)
@@ -47,7 +50,7 @@ func New(pools *db.Pools, jwtSecret string) http.Handler {
 
 	// --- Demand (Modul B, alur A) ---
 	demandRepo := demand.NewRepository(pools.App)
-	dH := demand.NewHandler(demand.NewService(demandRepo), demandRepo)
+	dH := demand.NewHandler(demand.NewService(demandRepo, notifier), demandRepo)
 	mux.HandleFunc("GET /api/demands", dH.List)                 // publik
 	mux.HandleFunc("GET /api/demands/{id}", dH.Detail)          // publik
 	mux.Handle("POST /api/demands", role(dH.Create, "BUYER"))
@@ -70,7 +73,7 @@ func New(pools *db.Pools, jwtSecret string) http.Handler {
 	mux.Handle("PUT /api/orders/{id}", auth1(sH.SetOrderStatus))
 
 	// --- Settlement (Modul D+E: serah-terima, transaksi/komisi, sengketa) ---
-	stH := settlement.NewHandler(settlement.NewRepository(pools.App))
+	stH := settlement.NewHandler(settlement.NewRepository(pools.App), notifier)
 	mux.Handle("POST /api/pledges/{id}/verifikasi", role(stH.VerifyPledge, "BUYER"))
 	mux.Handle("POST /api/orders/{id}/verifikasi", role(stH.VerifyOrder, "BUYER"))
 	mux.Handle("POST /api/pledges/{id}/lapor", auth1(stH.LaporPledge))
@@ -88,6 +91,9 @@ func New(pools *db.Pools, jwtSecret string) http.Handler {
 	// --- Matching grounded (Modul G) ---
 	mH := match.NewHandler(demandRepo, refRepo)
 	mux.HandleFunc("GET /api/demands/{id}/kandidat", mH.ByDemand) // publik
+
+	// --- Notifikasi WhatsApp (uji manual) ---
+	mux.Handle("POST /api/notify/test", role(notifier.TestHandler(), "ADMIN_KOPERASI"))
 
 	return chain(mux, recoverMW, logger, cors)
 }

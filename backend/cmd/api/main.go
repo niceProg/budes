@@ -29,7 +29,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           server.New(pools, cfg.JWTSecret),
+		Handler:           server.New(pools, cfg),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
