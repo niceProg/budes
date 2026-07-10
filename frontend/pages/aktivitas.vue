@@ -124,7 +124,7 @@ const myListings = computed(() =>
 
 <style scoped>
 .btn-cancel {
-  @apply cursor-pointer rounded-[9px] border-[1.5px] border-clay-200 bg-white px-3 py-1.5 text-[11.5px] font-bold text-clay-800 transition hover:bg-clay-100;
+  @apply cursor-pointer rounded-[9px] border-[1.5px] border-rose-200 bg-white px-3 py-1.5 text-[11.5px] font-bold text-rose-700 transition hover:bg-rose-50;
 }
-.link { @apply cursor-pointer font-bold text-clay-600; }
+.link { @apply cursor-pointer font-bold text-gold-700; }
 </style>

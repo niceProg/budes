@@ -9,8 +9,8 @@ type Map = Record<string, Badge>
 const OK = 'bg-success-100 text-success-600' // hijau lembut
 const DONE = 'bg-[#e0f1ef] text-success-800' // teal (selesai)
 const WARN = 'bg-warning-50 text-warning-700' // amber
-const DANGER = 'bg-clay-100 text-clay-800' // merah
-const MUTE = 'bg-sand-250 text-sand-700' // netral/pasif
+const DANGER = 'bg-rose-100 text-rose-700' // merah
+const MUTE = 'bg-navy-250 text-navy-700' // netral/pasif
 
 export const DEMAND_BADGE: Map = {
   DRAFT: { label: 'Draf', cls: MUTE },
