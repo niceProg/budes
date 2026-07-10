@@ -140,13 +140,15 @@
 - [~] Sengketa gotong royong per bagian: `lapor` per pledge/order ✅; penahanan dana otomatis belum (offline)
 - [x] Semua mutasi tercatat (audit `user_input`/`user_update`) — komisi masuk pembukuan
 
-## Modul F — Sistem Notifikasi & Real-time `[medium]`
-- [ ] Setup **WebSocket** di backend Go (hub/broadcast per user & channel)
-- [ ] Frontend: koneksi WS + update status pledge/order/transaksi langsung
-- [ ] **Broadcast Kebutuhan**: notif ke warga saat ada demand baru — **tertarget via Matching grounded (Modul G)**
-- [ ] **Update Status**: notif saat disanggupi/dipesan/diserahkan/dibayar
+## Modul F — Sistem Notifikasi `[medium]` — **via WhatsApp (OpenWA), BUKAN WebSocket** · Backend ✅
+> Keputusan: notifikasi lewat **gateway OpenWA** (`POST {base}/api/sessions/{session}/messages/send-text`, header `X-API-Key`), broadcast ke grup. Paket `internal/notify`.
+- [x] Client WhatsApp + `Broadcast` fire-and-forget + no-op saat nonaktif; config via env (`WA_*`)
+- [x] **Broadcast Kebutuhan**: demand OPEN (DP dibayar) → "🛒 Kebutuhan Baru" ke grup
+- [x] **Update Status**: verifikasi terima (dana cair) → "✅ Transaksi Selesai"
+- [x] `POST /api/notify/test` (admin) untuk uji manual
+- [~] **Uji live tertunda**: `WA_SESSION` yang benar belum diketahui (gateway 404 "Session not found" untuk `default`)
+- [ ] Event tambahan (sanggupan baru, listing baru, hasil KYC) + broadcast per-user (pakai `users.phone`)
 - [ ] **Peringatan Tenggat**: pengingat 24 jam sebelum batas 🟡
-- [ ] Notifikasi in-app (bell) + fallback polling bila WS gagal
 
 ## Modul G — Matching & Broadcast Grounded (data KDMP) `[high]` 🟡
 > Diferensiator: mencocokkan kebutuhan (Demand) ke **kapasitas produksi & stok nyata** dari Reference DB.
@@ -174,15 +176,15 @@
 - [ ] SSR/meta untuk Jelajah Pasar & Etalase Listing (SEO sebelum login)
 
 ### Testing & Kualitas 🟡
-- [ ] Go: unit test logika komisi, anti over-pledge/over-order, sengketa parsial, transisi status
-- [ ] Go: integration test endpoint utama (auth, demands+pledges, listings+orders, verifikasi, transaksi)
+- [~] Go: unit test logika inti ✅ (DP, komisi 5%, transisi status, derivasi kategori — `go test ./...` hijau); anti over-pledge/over-order & sengketa parsial diuji via smoke test
+- [~] Endpoint utama **smoke-tested end-to-end** (auth, demands+pledges, listings+orders, verifikasi, transaksi, KYC, disputes, matching); integration test formal belum
 - [ ] Frontend: test komponen & alur utama (Vitest)
-- [ ] Lint/format: `golangci-lint` + `gofmt` (Go), ESLint + Prettier (Nuxt)
+- [~] Lint/format: `go vet` hijau ✅; `golangci-lint`/ESLint/Prettier belum
 
 ### Deployment 🟡
-- [ ] `Dockerfile` untuk Nuxt (build SSR) & Go (multi-stage build)
-- [ ] Docker Compose produksi + migrasi & seed otomatis saat start
-- [ ] HTTPS/reverse proxy (Caddy/Nginx/Traefik), env produksi, backup DB
+- [~] **Dockerfile Go (multi-stage) ✅** (`backend/Dockerfile`, image 78MB) + entrypoint migrate→seed→api; Nuxt belum
+- [x] Docker Compose: service `api` + `app-db` + `ref-db`, **migrasi & seed otomatis saat start** (idempoten)
+- [ ] HTTPS/reverse proxy (Caddy/Nginx/Traefik), env produksi, backup DB · restore dump KDMP ke ref-db otomatis
 - [ ] CI sederhana: test + lint + build image saat push 🟢
 
 ---
