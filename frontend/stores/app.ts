@@ -190,6 +190,9 @@ export const useApp = defineStore('app', {
       { id: 'pc5', komoditas: 'Kelapa', satuan: 'butir', maxJual: 3800, maxBeli: 4500 },
     ] as PriceCap[],
 
+    // Komisi koperasi per transaksi (persen) — dari GET /api/pengaturan/komisi.
+    commissionPct: 5,
+
     // UI transient
     modal: null as null | 'auth' | 'pledge' | 'order' | 'listingView' | 'listingEdit' | 'kycView',
     modErr: '',
@@ -271,7 +274,17 @@ export const useApp = defineStore('app', {
       this.txns = r.transactions || []
       mergeById(this.demands, r.demands)
       mergeById(this.listings, r.listings)
+      await this.loadCommission()
       if (this.user?.role === 'ADMIN_KOPERASI') await this.hydrateKyc()
+    },
+    // Muat persentase komisi koperasi terkini.
+    async loadCommission() {
+      const api = useApi()
+      if (!api.enabled || !api.token.value) return
+      try {
+        const res: any = await api.data('/api/pengaturan/komisi')
+        if (res && typeof res.komisi_persen === 'number') this.commissionPct = res.komisi_persen
+      } catch { /* biarkan default */ }
     },
     // Panel KYC admin: muat pengajuan verifikasi dari API.
     async hydrateKyc() {
@@ -819,7 +832,7 @@ export const useApp = defineStore('app', {
           this.txns.push({ id: 't' + Date.now(), kind: 'supply', item: o.item, pihak: `— → ${this.user?.name ?? ''}`, gross: o.qty * o.harga, pay: 'UNPAID' })
         }
       }
-      this.showToast('Serah-terima tercatat. Komisi koperasi 5% masuk pembukuan.')
+      this.showToast(`Serah-terima tercatat. Komisi koperasi ${this.commissionPct}% masuk pembukuan.`)
     },
     async advanceTxn(id: string, pay: string) {
       const api = useApi()
@@ -888,6 +901,26 @@ export const useApp = defineStore('app', {
       } finally {
         this.busy = false
       }
+    },
+
+    // ---- pengaturan komisi koperasi (GET/PUT /api/pengaturan/komisi) ----
+    async saveCommission(pct: number) {
+      const v = Math.min(100, Math.max(0, Number(pct) || 0))
+      const api = useApi()
+      if (api.enabled) {
+        this.busy = true
+        try {
+          const res: any = await api.data('/api/pengaturan/komisi', {
+            method: 'PUT',
+            body: { komisi_persen: v },
+          })
+          this.commissionPct = typeof res?.komisi_persen === 'number' ? res.komisi_persen : Math.round(v * 100) / 100
+        } catch (e) { this.showToast(errMsg(e)); return }
+        finally { this.busy = false }
+      } else {
+        this.commissionPct = Math.round(v * 100) / 100
+      }
+      this.showToast(`Komisi koperasi diperbarui menjadi ${this.commissionPct}% per transaksi.`)
     },
 
     // ---- pengaturan batas harga komoditas (lokal — tak ada endpoint backend) ----

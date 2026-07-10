@@ -12,6 +12,8 @@ const NEXT: Record<string, [string, string]> = {
   PAID: ['SETTLED', 'Tandai Selesai'],
 }
 
+const feeRate = computed(() => app.commissionPct / 100)
+
 const txnList = computed(() =>
   app.txns.map((t) => {
     const isDemand = t.kind === 'demand'
@@ -22,7 +24,7 @@ const txnList = computed(() =>
       subLine: `${fmtRp(t.gross)} · ${t.pihak}`,
       kindLabel: isDemand ? 'Permintaan' : 'Etalase',
       kindCls: isDemand ? 'bg-gold-50 text-gold-700' : 'bg-grape-100 text-grape-700',
-      feeTxt: fmtRp(t.gross * 0.05),
+      feeTxt: fmtRp(t.gross * feeRate.value),
       pay: badge(PAY_BADGE, t.pay, 'UNPAID'),
       nextPay: next ? next[0] : null,
       actionLabel: next ? next[1] : '',
@@ -30,7 +32,7 @@ const txnList = computed(() =>
   }),
 )
 const totGross = computed(() => app.txns.reduce((a, t) => a + t.gross, 0))
-const totFee = computed(() => totGross.value * 0.05)
+const totFee = computed(() => totGross.value * feeRate.value)
 const unpaidCount = computed(() => app.txns.filter((t) => t.pay === 'UNPAID').length)
 </script>
 
@@ -42,7 +44,7 @@ const unpaidCount = computed(() => app.txns.filter((t) => t.pay === 'UNPAID').le
     <!-- stat tiles -->
     <div class="mb-5 grid gap-3.5" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))">
       <div class="card p-5">
-        <div class="mb-1 text-xs font-bold text-sand-600">Total Komisi (5%)</div>
+        <div class="mb-1 text-xs font-bold text-sand-600">Total Komisi ({{ app.commissionPct }}%)</div>
         <div class="text-[23px] font-extrabold text-clay-600">{{ fmtRp(totFee) }}</div>
       </div>
       <div class="card p-5">
@@ -61,7 +63,7 @@ const unpaidCount = computed(() => app.txns.filter((t) => t.pay === 'UNPAID').le
       <div class="overflow-x-auto">
         <div class="min-w-[560px]">
           <div class="grid gap-2.5 border-b border-sand-200 px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.04em] text-sand-600" style="grid-template-columns: 100px 1.8fr 1fr 190px">
-            <span>Alur</span><span>Komoditas</span><span>Komisi 5%</span><span>Status</span>
+            <span>Alur</span><span>Komoditas</span><span>Komisi {{ app.commissionPct }}%</span><span>Status</span>
           </div>
           <div
             v-for="t in txnList"

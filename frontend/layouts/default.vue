@@ -22,6 +22,7 @@ const isActive = (p: string) => (p === '/' ? route.path === '/' : route.path.sta
       <NuxtLink to="/" class="sb" :class="isActive('/') ? 'sb-on' : 'sb-off'">Jelajah Pasar</NuxtLink>
       <NuxtLink to="/etalase" class="sb" :class="isActive('/etalase') ? 'sb-on' : 'sb-off'">Etalase</NuxtLink>
       <NuxtLink to="/harga" class="sb" :class="isActive('/harga') ? 'sb-on' : 'sb-off'">Pengaturan Harga</NuxtLink>
+      <NuxtLink to="/komisi" class="sb" :class="isActive('/komisi') ? 'sb-on' : 'sb-off'">Pengaturan Komisi</NuxtLink>
       <NuxtLink to="/verifikasi" class="sb" :class="isActive('/verifikasi') ? 'sb-on' : 'sb-off'">Verifikasi Identitas</NuxtLink>
       <div class="flex-1" />
       <div class="mt-3.5 flex items-center gap-2.5 border-t border-sand-400 pt-3.5">
@@ -91,7 +92,7 @@ const isActive = (p: string) => (p === '/' ? route.path === '/' : route.path.sta
             <div class="text-[12.5px]">Pasar gotong royong Koperasi Desa Merah Putih.</div>
           </div>
         </div>
-        <div class="text-xs text-navy-500">© 2026 Bursa Desa · Komisi koperasi 5% per transaksi · Prototipe demo</div>
+        <div class="text-xs text-navy-500">© 2026 Bursa Desa · Komisi koperasi {{ app.commissionPct }}% per transaksi · Prototipe demo</div>
       </div>
     </footer>
   </div>
