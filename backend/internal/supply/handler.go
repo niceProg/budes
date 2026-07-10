@@ -2,18 +2,25 @@ package supply
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"budes/internal/auth"
 	"budes/internal/httpx"
+	"budes/internal/notify"
 )
 
 // Handler mengekspos endpoint alur Supply.
-type Handler struct{ repo *Repository }
+type Handler struct {
+	repo     *Repository
+	notifier *notify.Notifier
+}
 
 // NewHandler membuat handler supply.
-func NewHandler(repo *Repository) *Handler { return &Handler{repo: repo} }
+func NewHandler(repo *Repository, notifier *notify.Notifier) *Handler {
+	return &Handler{repo: repo, notifier: notifier}
+}
 
 // CreateListing: POST /api/listings (WARGA/ADMIN_KOPERASI)
 func (h *Handler) CreateListing(w http.ResponseWriter, r *http.Request) {
@@ -86,6 +93,16 @@ func (h *Handler) SetListingStatus(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeErr(w, err)
 		return
+	}
+	if in.Status == "POSTED" {
+		if l, e := h.repo.GetListing(r.Context(), r.PathValue("id")); e == nil {
+			satuan := ""
+			if l.Satuan != nil {
+				satuan = " " + *l.Satuan
+			}
+			h.notifier.Broadcast(fmt.Sprintf("🌾 *Komoditas Baru di Bursa Desa*\n%s — %d%s tersedia @Rp%.0f/item\n\nBeli sekarang di Budes!",
+				l.ItemName, l.QtyAvailable-l.QtySold, satuan, l.PricePerItem))
+		}
 	}
 	httpx.OK(w, "status listing diperbarui")
 }

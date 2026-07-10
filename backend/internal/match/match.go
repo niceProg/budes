@@ -41,9 +41,9 @@ func (h *Handler) ByDemand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.OK(w, map[string]any{
-		"demand_id":   d.ID,
-		"item":        d.ItemName,
-		"stok_gerai":  stok,    // kandidat dari inventaris gerai nyata
+		"demand_id":    d.ID,
+		"item":         d.ItemName,
+		"stok_gerai":   stok,    // kandidat dari inventaris gerai nyata
 		"potensi_desa": potensi, // kandidat dari komoditas unggulan desa (pra-pesan)
 	})
 }

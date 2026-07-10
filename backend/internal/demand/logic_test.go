@@ -4,8 +4,8 @@ import "testing"
 
 func TestComputeDP(t *testing.T) {
 	cases := []struct {
-		qty                     int
-		price                   float64
+		qty                        int
+		price                      float64
 		wantTotal, wantDP, wantRem float64
 	}{
 		{500, 20000, 10_000_000, 3_000_000, 7_000_000},

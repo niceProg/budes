@@ -93,14 +93,38 @@ func (n *Notifier) TestHandler() http.HandlerFunc {
 
 // Broadcast mengirim teks ke grup default secara fire-and-forget (tak memblok request).
 func (n *Notifier) Broadcast(text string) {
-	if !n.cfg.Enabled() || n.cfg.GroupChatID == "" {
+	n.fire(n.cfg.GroupChatID, text)
+}
+
+// NotifyPhone mengirim ke nomor pribadi (fire-and-forget). No-op bila phone kosong.
+// chatId WA pribadi = "<digit>@c.us".
+func (n *Notifier) NotifyPhone(phone, text string) {
+	digits := onlyDigits(phone)
+	if digits == "" {
+		return
+	}
+	n.fire(digits+"@c.us", text)
+}
+
+func (n *Notifier) fire(chatID, text string) {
+	if !n.cfg.Enabled() || chatID == "" {
 		return
 	}
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := n.SendText(ctx, n.cfg.GroupChatID, text); err != nil {
-			log.Printf("notify: gagal broadcast WA: %v", err)
+		if err := n.SendText(ctx, chatID, text); err != nil {
+			log.Printf("notify: gagal kirim WA ke %s: %v", chatID, err)
 		}
 	}()
+}
+
+func onlyDigits(s string) string {
+	out := make([]byte, 0, len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] >= '0' && s[i] <= '9' {
+			out = append(out, s[i])
+		}
+	}
+	return string(out)
 }

@@ -72,7 +72,7 @@ func (r *Repository) VerifyPledge(ctx context.Context, pledgeID, buyerID string,
 		qty = *qtyReceived
 	}
 	if qty <= 0 || qty > qtyPledged {
-		return nil, errors.New("qty_received harus 1.." )
+		return nil, errors.New("qty_received harus 1..")
 	}
 	price := valueOr(pPrice, dPrice)
 	gross := float64(qty) * price
