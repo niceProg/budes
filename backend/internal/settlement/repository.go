@@ -136,6 +136,51 @@ func (r *Repository) Dispute(ctx context.Context, kind, refID, reporterID, reaso
 	return id, err
 }
 
+// Dispute (baris) untuk daftar/kelola sengketa.
+type DisputeRow struct {
+	ID             string  `json:"id"`
+	DemandPledgeID *string `json:"demand_pledge_id"`
+	OrderID        *string `json:"order_id"`
+	SourceType     string  `json:"source_type"`
+	ReportedBy     string  `json:"reported_by"`
+	Reason         string  `json:"reason"`
+	DisputeStatus  string  `json:"dispute_status"`
+	Resolution     *string `json:"resolution"`
+}
+
+// ListDisputes mengembalikan sengketa (filter status opsional).
+func (r *Repository) ListDisputes(ctx context.Context, status string) ([]DisputeRow, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id::text, demand_pledge_id::text, order_id::text, source_type,
+			reported_by::text, reason, dispute_status, resolution
+		FROM disputes WHERE ($1='' OR dispute_status=$1) ORDER BY tanggal_input DESC`, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []DisputeRow{}
+	for rows.Next() {
+		var d DisputeRow
+		if err := rows.Scan(&d.ID, &d.DemandPledgeID, &d.OrderID, &d.SourceType,
+			&d.ReportedBy, &d.Reason, &d.DisputeStatus, &d.Resolution); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// ResolveDispute memperbarui status sengketa (REVIEW/RESOLVED) + resolusi.
+func (r *Repository) ResolveDispute(ctx context.Context, id, reviewerID, status string, resolution *string) (int64, error) {
+	ct, err := r.pool.Exec(ctx, `UPDATE disputes
+		SET dispute_status=$2, resolution=$3, resolved_at = CASE WHEN $2='RESOLVED' THEN now() ELSE resolved_at END, user_update=$4
+		WHERE id=$1`, id, status, resolution, reviewerID)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
+}
+
 // UpdatePayment memperbarui status pembayaran sebuah transaksi (PAID mengisi paid_at).
 func (r *Repository) UpdatePayment(ctx context.Context, kind, id, status string) (int64, error) {
 	table := "demand_transactions"

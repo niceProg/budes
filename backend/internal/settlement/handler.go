@@ -118,6 +118,41 @@ func (h *Handler) UpdatePayment(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, "status pembayaran diperbarui")
 }
 
+// ListDisputes: GET /api/disputes?status=OPEN (ADMIN_KOPERASI)
+func (h *Handler) ListDisputes(w http.ResponseWriter, r *http.Request) {
+	res, err := h.repo.ListDisputes(r.Context(), r.URL.Query().Get("status"))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	httpx.OK(w, res)
+}
+
+// ResolveDispute: PUT /api/disputes/{id} (ADMIN_KOPERASI)
+func (h *Handler) ResolveDispute(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Status     string  `json:"status"`
+		Resolution *string `json:"resolution"`
+	}
+	if !httpx.Decode(w, r, &in) {
+		return
+	}
+	if in.Status != "REVIEW" && in.Status != "RESOLVED" {
+		httpx.Error(w, http.StatusBadRequest, "status harus REVIEW atau RESOLVED")
+		return
+	}
+	n, err := h.repo.ResolveDispute(r.Context(), r.PathValue("id"), auth.UserID(r.Context()), in.Status, in.Resolution)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if n == 0 {
+		httpx.Error(w, http.StatusNotFound, "sengketa tidak ditemukan")
+		return
+	}
+	httpx.OK(w, "sengketa "+in.Status)
+}
+
 // Pembukuan: GET /api/pembukuan (ADMIN_KOPERASI)
 func (h *Handler) Pembukuan(w http.ResponseWriter, r *http.Request) {
 	p, err := h.repo.Pembukuan(r.Context())

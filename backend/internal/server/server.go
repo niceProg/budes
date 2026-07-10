@@ -14,6 +14,7 @@ import (
 	"budes/internal/match"
 	"budes/internal/notify"
 	"budes/internal/reference"
+	"budes/internal/riwayat"
 	"budes/internal/settlement"
 	"budes/internal/supply"
 	"budes/internal/verification"
@@ -36,7 +37,7 @@ func New(pools *db.Pools, cfg config.Config) http.Handler {
 	// --- Auth (Modul A) ---
 	jwtMgr := auth.NewManager(cfg.JWTSecret)
 	aRepo := auth.NewRepository(pools.App)
-	aH := auth.NewHandler(auth.NewService(aRepo, jwtMgr), aRepo)
+	aH := auth.NewHandler(auth.NewService(aRepo, jwtMgr, refRepo), aRepo)
 	mux.HandleFunc("POST /api/auth/register", aH.Register)
 	mux.HandleFunc("POST /api/auth/login", aH.Login)
 	mux.HandleFunc("POST /api/auth/logout", aH.Logout)
@@ -56,12 +57,14 @@ func New(pools *db.Pools, cfg config.Config) http.Handler {
 	mux.Handle("POST /api/demands", role(dH.Create, "BUYER"))
 	mux.Handle("POST /api/demands/{id}/dp", role(dH.PayDP, "BUYER"))
 	mux.Handle("POST /api/demands/{id}/cancel", role(dH.Cancel, "BUYER"))
+	mux.Handle("POST /api/demands/{id}/expire", role(dH.Expire, "ADMIN_KOPERASI"))
 	mux.Handle("POST /api/demands/{id}/pledges", role(dH.CreatePledge, "WARGA"))
 	mux.Handle("GET /api/pledges", auth1(dH.MyPledges))
 	mux.Handle("PUT /api/pledges/{id}", auth1(dH.UpdatePledge))
 
 	// --- Supply (Modul C, alur B) ---
-	sH := supply.NewHandler(supply.NewRepository(pools.App))
+	supplyRepo := supply.NewRepository(pools.App)
+	sH := supply.NewHandler(supplyRepo)
 	mux.HandleFunc("GET /api/listings", sH.List)             // publik
 	mux.HandleFunc("GET /api/listings/{id}", sH.Detail)      // publik
 	mux.Handle("POST /api/listings", role(sH.CreateListing, "WARGA", "ADMIN_KOPERASI"))
@@ -73,7 +76,8 @@ func New(pools *db.Pools, cfg config.Config) http.Handler {
 	mux.Handle("PUT /api/orders/{id}", auth1(sH.SetOrderStatus))
 
 	// --- Settlement (Modul D+E: serah-terima, transaksi/komisi, sengketa) ---
-	stH := settlement.NewHandler(settlement.NewRepository(pools.App), notifier)
+	settleRepo := settlement.NewRepository(pools.App)
+	stH := settlement.NewHandler(settleRepo, notifier)
 	mux.Handle("POST /api/pledges/{id}/verifikasi", role(stH.VerifyPledge, "BUYER"))
 	mux.Handle("POST /api/orders/{id}/verifikasi", role(stH.VerifyOrder, "BUYER"))
 	mux.Handle("POST /api/pledges/{id}/lapor", auth1(stH.LaporPledge))
@@ -81,6 +85,8 @@ func New(pools *db.Pools, cfg config.Config) http.Handler {
 	mux.Handle("GET /api/transactions", auth1(stH.List))
 	mux.Handle("PUT /api/transactions/{kind}/{id}", role(stH.UpdatePayment, "ADMIN_KOPERASI"))
 	mux.Handle("GET /api/pembukuan", role(stH.Pembukuan, "ADMIN_KOPERASI"))
+	mux.Handle("GET /api/disputes", role(stH.ListDisputes, "ADMIN_KOPERASI"))
+	mux.Handle("PUT /api/disputes/{id}", role(stH.ResolveDispute, "ADMIN_KOPERASI"))
 
 	// --- Verifikasi KYC (Modul A) ---
 	vH := verification.NewHandler(verification.NewRepository(pools.App))
@@ -91,6 +97,10 @@ func New(pools *db.Pools, cfg config.Config) http.Handler {
 	// --- Matching grounded (Modul G) ---
 	mH := match.NewHandler(demandRepo, refRepo)
 	mux.HandleFunc("GET /api/demands/{id}/kandidat", mH.ByDemand) // publik
+
+	// --- Riwayat pengguna (Modul A) ---
+	rH := riwayat.NewHandler(demandRepo, supplyRepo, settleRepo)
+	mux.Handle("GET /api/me/riwayat", auth1(rH.Me))
 
 	// --- Notifikasi WhatsApp (uji manual) ---
 	mux.Handle("POST /api/notify/test", role(notifier.TestHandler(), "ADMIN_KOPERASI"))

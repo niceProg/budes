@@ -57,6 +57,20 @@ type Kandidat struct {
 	Score        float64 `json:"score"`
 }
 
+// AnggotaRefExists mengecek apakah anggota_ref benar-benar ada di dataset KDMP.
+func (r *Repository) AnggotaRefExists(ctx context.Context, ref string) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM anggota_koperasi WHERE anggota_ref=$1)`, ref).Scan(&ok)
+	return ok, err
+}
+
+// KoperasiRefExists mengecek apakah koperasi_ref ada di dataset KDMP.
+func (r *Repository) KoperasiRefExists(ctx context.Context, ref string) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM referensi_koperasi_wilayah WHERE koperasi_ref=$1)`, ref).Scan(&ok)
+	return ok, err
+}
+
 // SearchKoperasi mencari koperasi berdasarkan nama (case-insensitive).
 func (r *Repository) SearchKoperasi(ctx context.Context, q string, limit int) ([]Koperasi, error) {
 	const sql = `

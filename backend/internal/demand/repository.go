@@ -84,6 +84,25 @@ func (r *Repository) List(ctx context.Context, statuses []string) ([]Demand, err
 	return out, rows.Err()
 }
 
+// ByBuyer mengembalikan semua demand milik pembeli (semua status).
+func (r *Repository) ByBuyer(ctx context.Context, buyerID string) ([]Demand, error) {
+	rows, err := r.pool.Query(ctx, `SELECT `+demandCols+` FROM demands
+		WHERE buyer_id=$1 ORDER BY tanggal_input DESC`, buyerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Demand{}
+	for rows.Next() {
+		d, err := scanDemand(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *d)
+	}
+	return out, rows.Err()
+}
+
 // Get mengambil satu demand beserta daftar pledges-nya.
 func (r *Repository) Get(ctx context.Context, id string) (*Demand, error) {
 	d, err := scanDemand(r.pool.QueryRow(ctx, `SELECT `+demandCols+` FROM demands WHERE id=$1`, id))
@@ -285,6 +304,18 @@ func (r *Repository) Cancel(ctx context.Context, id, buyerID string) error {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// ExpireDemand (ADMIN_KOPERASI): akhiri demand yang gagal → EXPIRED + DP REFUNDED (bila sudah PAID).
+func (r *Repository) ExpireDemand(ctx context.Context, id string) (int64, error) {
+	ct, err := r.pool.Exec(ctx, `UPDATE demands
+		SET demand_status='EXPIRED',
+		    dp_status = CASE WHEN dp_status='PAID' THEN 'REFUNDED' ELSE dp_status END
+		WHERE id=$1 AND demand_status IN ('DRAFT','OPEN','PARTIAL')`, id)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
 }
 
 func allowed(list []string, v string) bool {
