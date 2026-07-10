@@ -82,7 +82,7 @@
 - [x] `POST /api/auth/login` → terbitkan JWT (HS256) 🔴
 - [x] Middleware autentikasi JWT + otorisasi peran (`RequireRole`) 🔴
 - [x] `POST /api/auth/logout` (stateless) 🟡 · [x] `GET /api/me` · [ ] `GET /api/me/riwayat`
-- [ ] `POST /api/verifikasi` (ajukan KYC) · `GET /api/verifikasi` (daftar; admin) · `PUT /api/verifikasi/:id` (ADMIN_KOPERASI: VERIFIED/REJECTED → set `users.verification_status`) 🟡
+- [x] `POST /api/verifikasi` (ajukan KYC) · `GET /api/verifikasi` (daftar; admin) · `PUT /api/verifikasi/:id` (ADMIN_KOPERASI: VERIFIED/REJECTED → set `users.verification_status`) 🟡 — paket `internal/verification`
 
 ## Modul B — Alur A: Pasang Kebutuhan (Demand) `[high]` → `features/01-pasang-kebutuhan.md` 🔴 · **Backend ✅ · Frontend ⬜**
 **Frontend**
@@ -101,44 +101,44 @@
 - [x] Logika status demand `DRAFT → OPEN → PARTIAL → CLOSED` + anti over-pledge
 - [~] Logika DP: `FORFEITED` via `POST /api/demands/:id/cancel` (buyer) ✅ · **`REFUNDED` (expire koperasi) belum**
 
-## Modul C — Alur B: Titip-Jual (Supply) `[high]` → `features/02-titip-jual.md` 🔴
+## Modul C — Alur B: Titip-Jual (Supply) `[high]` → `features/02-titip-jual.md` 🔴 · **Backend ✅ · Frontend ⬜**
 **Frontend**
 - [ ] Halaman **Etalase Listing** (publik) — komoditas warga yang siap dijual
 - [ ] Halaman **Titipkan Komoditas** (warga/koperasi buat listing: komoditas, qty, harga)
 - [ ] Halaman **Detail Listing** + tombol **Pesan** (just-in-time auth)
 - [ ] Halaman **Pesananku** (buyer) & **Titipanku** (warga)
 
-**Backend (Go)**
-- [ ] `POST /api/listings` (buat; warga/admin) · `GET /api/listings` (publik) · `GET /api/listings/:id`
-- [ ] `PUT /api/listings/:id` (status DRAFT/POSTED/SOLD_OUT/CLOSED, rekalkulasi `qty_available`/`qty_sold`)
-- [ ] `POST /api/orders` (buyer pesan; snapshot harga, hitung total) · `GET /api/orders` · `GET /api/orders/:id`
-- [ ] `PUT /api/orders/:id` (status PENDING → CONFIRMED → HANDED_OVER/CANCELLED) + anti over-order
+**Backend (Go)** — paket `internal/supply`; ✅ smoke-tested
+- [x] `POST /api/listings` (warga/admin) · `GET /api/listings` (publik) · `GET /api/listings/:id` · `GET /api/my/listings`
+- [x] `PUT /api/listings/:id` (status DRAFT/POSTED/SOLD_OUT/CLOSED)
+- [x] `POST /api/orders` (snapshot harga, total, anti over-order via tx) · `GET /api/orders` · `GET /api/orders/:id`
+- [x] `PUT /api/orders/:id` (PENDING → CONFIRMED, CANCELLED kembalikan stok; HANDED_OVER via verifikasi)
 
-## Modul D — Konfirmasi Serah-Terima `[high]` → `features/03-konfirmasi-terima.md` 🔴
+## Modul D — Konfirmasi Serah-Terima `[high]` → `features/03-konfirmasi-terima.md` 🔴 · **Backend ✅ · Frontend ⬜**
 **Frontend**
 - [ ] Halaman **Daftar Serah-Terima** (pledge DELIVERED_TO_KOPERASI / order CONFIRMED yang menunggu)
 - [ ] Aksi **Verifikasi Terima** — penuh & sebagian
 - [ ] Aksi **Lapor Masalah** (form alasan) → sengketa
 - [ ] Daftar diperbarui langsung tanpa reload
 
-**Backend (Go)**
-- [ ] `POST /api/pledges/:id/verifikasi` (alur A) → HANDED_TO_BUYER + trigger catat `demand_transactions`
-- [ ] `POST /api/orders/:id/verifikasi` (alur B) → HANDED_OVER + trigger catat `supply_transactions`
-- [ ] `POST /api/(pledges|orders)/:id/lapor` → buat `disputes` (source_type sesuai alur)
+**Backend (Go)** — paket `internal/settlement`; ✅ smoke-tested
+- [x] `POST /api/pledges/:id/verifikasi` (alur A) → HANDED_TO_BUYER + catat `demand_transactions` (qty parsial didukung)
+- [x] `POST /api/orders/:id/verifikasi` (alur B) → HANDED_OVER + catat `supply_transactions`
+- [x] `POST /api/pledges/:id/lapor` & `POST /api/orders/:id/lapor` → buat `disputes` (source_type sesuai alur)
 
-## Modul E — Pencatatan Transaksi Offline & Komisi `[high]` → `features/04-transaksi-komisi.md` 🔴
-> Menggantikan modul escrow. Tidak ada dana ditahan; sistem mencatat transaksi nyata + komisi.
+## Modul E — Pencatatan Transaksi Offline & Komisi `[high]` → `features/04-transaksi-komisi.md` 🔴 · **Backend ✅ · Frontend ⬜**
+> Menggantikan modul escrow. Tidak ada dana ditahan; sistem mencatat transaksi nyata + komisi (5%).
 **Frontend**
 - [ ] Status pembayaran per pledge/order (UNPAID/PAID/SETTLED) di Pantau/Pesananku
 - [ ] **Dashboard Koperasi** — pantau semua transaksi kedua alur + total komisi
 - [ ] Ringkasan pembukuan koperasi (rekap komisi per periode)
 
-**Backend (Go)**
-- [ ] Saat verifikasi terima: buat `*_transactions` (gross, hitung `koperasi_fee` %, `net_amount`, method, status awal)
-- [ ] `PUT /api/transactions/:id` (perbarui `payment_status` UNPAID → PAID → SETTLED, isi `paid_at`)
-- [ ] `GET /api/transactions` (filter per peran/koperasi/alur) · `GET /api/koperasi/:id/pembukuan` (rekap komisi)
-- [ ] Sengketa gotong royong: hanya transaksi pledge/order bermasalah yang tertahan status-nya; sisanya jalan
-- [ ] Semua mutasi tercatat (audit) — komisi masuk pembukuan koperasi
+**Backend (Go)** — paket `internal/settlement`; ✅ smoke-tested (komisi 5%)
+- [x] Saat verifikasi terima: buat `*_transactions` (gross, `koperasi_fee` 5%, `net_amount`, status awal UNPAID)
+- [x] `PUT /api/transactions/:kind/:id` (payment_status UNPAID → PAID → SETTLED, isi `paid_at`; admin)
+- [x] `GET /api/transactions` (per peran; admin lihat semua) · `GET /api/pembukuan` (rekap komisi demand+supply)
+- [~] Sengketa gotong royong per bagian: `lapor` per pledge/order ✅; penahanan dana otomatis belum (offline)
+- [x] Semua mutasi tercatat (audit `user_input`/`user_update`) — komisi masuk pembukuan
 
 ## Modul F — Sistem Notifikasi & Real-time `[medium]`
 - [ ] Setup **WebSocket** di backend Go (hub/broadcast per user & channel)
@@ -151,11 +151,12 @@
 ## Modul G — Matching & Broadcast Grounded (data KDMP) `[high]` 🟡
 > Diferensiator: mencocokkan kebutuhan (Demand) ke **kapasitas produksi & stok nyata** dari Reference DB.
 
-**Backend (Go) — read-only atas Reference DB**
-- [~] `GET /api/match/kandidat?item=&provinsi=` **selesai** (kandidat dari stok gerai nyata, join inventaris→koperasi→wilayah). TODO: bungkus jadi `GET /api/demands/:id/kandidat` (baca demand dari App DB → derive item/wilayah)
-- [ ] Tambah sinyal **komoditas unggulan desa** (`referensi_komoditas_desa`) sebagai sumber kandidat pra-pesan (bukan hanya stok gerai)
-- [~] Skoring: v1 = besar stok. TODO: kecocokan komoditas × ketersediaan × kedekatan wilayah + normalisasi nama/satuan (data variatif)
-- [ ] Broadcast tertarget: saat demand dibuat, tentukan set warga/koperasi relevan untuk notifikasi
+**Backend (Go) — read-only atas Reference DB** — paket `internal/match` + `internal/reference`
+- [x] `GET /api/match/kandidat?item=&provinsi=` (kandidat dari stok gerai nyata, join inventaris→koperasi→wilayah)
+- [x] `GET /api/demands/:id/kandidat` (baca demand dari App DB → derive item → stok gerai + potensi desa)
+- [x] Sinyal **komoditas unggulan desa** (`referensi_komoditas_desa` × wilayah, urut nilai potensi) — `MatchPotensiDesa`
+- [~] Skoring: v1 = besar stok / nilai potensi. TODO: kecocokan komoditas × ketersediaan × kedekatan wilayah + normalisasi nama
+- [ ] Broadcast tertarget: saat demand dibuat, tentukan set warga/koperasi relevan untuk notifikasi (butuh Modul F)
 
 **Frontend**
 - [ ] Di Detail Permintaan: seksi "Desa/koperasi yang berpotensi memenuhi" (dari kandidat)
