@@ -33,33 +33,31 @@
 - [ ] Env config bersama (`.env`): **`APP_DATABASE_URL`** (writable) + **`REF_DATABASE_URL`** (read-only), `JWT_SECRET`, `API_BASE_URL`, dll
 - [x] Backend Go: skeleton (router `net/http`, config loader env, **2 koneksi Postgres: appDB rw + refDB ro** via pgxpool, health check `GET /health` cek keduanya) — `backend/`
 - [x] Backend Go: pool refDB dibatasi read-only (`SET default_transaction_read_only=on` di AfterConnect) — cegah tulis tak sengaja
-- [ ] Backend Go: tooling migrasi (golang-migrate / goose) **hanya untuk App DB** + layer repository-service-handler per modul
+- [~] Backend Go: layer **repository-service-handler per modul** ✅ (auth, demand) + JWT middleware; tooling migrasi formal (golang-migrate) belum — migrasi diterapkan via `psql`
 - [ ] Frontend Nuxt: skeleton (Tailwind/Nuxt UI, Pinia, layout dasar, wrapper `$fetch` + interceptor JWT)
 - [ ] Konvensi API: format response JSON, error, penamaan `snake_case`, UUID sebagai PK
 - [x] CORS + middleware dasar (logging, recover) di backend
 
 ## Fase 1 — Skema Database & Migrasi 🔴
 > Migrasi **hanya untuk App DB** (writable). Reference DB KDMP tidak dimigrasi — di-clone (Fase 0) & dipakai untuk seed. Basis PRD §6 + ERD `erd_marketplace_koperasi.mermaid`.
-> ⚠️ Migrasi lama `000001_init_schema` (skema escrow: users/demands/fulfillments/transactions) **sudah usang** — ganti ke skema hub-koperasi dua-alur di bawah.
+> ✅ Migrasi `000001_init_schema` kini berisi **skema hub-koperasi dua-alur (11 tabel, termasuk `verifications` + DP)** dan **sudah diterapkan** ke App DB (:5434).
 
-**App DB (writable) — migrasi (skema baru)**
-> ⚠️ Migrasi `000001` saat ini **belum** memuat `verifications`, `users.verification_status`, dan kolom DP di `demands` (tambahan dari ERD Herick) — perlu ditambahkan.
-- [ ] `koperasi` (id, nama, desa, wilayah, kontak, status, **`koperasi_ref`**)
-- [ ] `users` (koperasi_id nullable, name, phone, email, password_hash, role `BUYER/WARGA/ADMIN_KOPERASI`, status, **`anggota_ref`**, **`verification_status` UNVERIFIED/PENDING/VERIFIED/REJECTED**, **`verified_at`**)
-- [ ] `verifications` (user_id, nik, id_card_file, support_doc_file, `status` PENDING/VERIFIED/REJECTED, reviewed_by, review_note, reviewed_at)
-- [ ] `komoditas` (id, nama, kategori, satuan, **`komoditas_ref`**)
-- [ ] `demands` (buyer_id, koperasi_id, komoditas_id, item_name, satuan, total_qty, fulfilled_qty, target_price_per_item, deadline, `demand_status` **DRAFT**/OPEN/PARTIAL/CLOSED/EXPIRED, **+ DP:** total_price, dp_percent, dp_amount, remaining_amount, dp_payment_method CASH/TRANSFER, `dp_status` UNPAID/PAID/FORFEITED/REFUNDED, dp_paid_at)
-- [ ] `demand_pledges` (demand_id, warga_id, qty_pledged, qty_delivered, price_per_item, `pledge_status` PENDING/ACCEPTED/DELIVERED_TO_KOPERASI/HANDED_TO_BUYER/CANCELLED)
-- [ ] `supply_listings` (koperasi_id, warga_id, komoditas_id, item_name, satuan, qty_available, qty_sold, price_per_item, `listing_status` DRAFT/POSTED/SOLD_OUT/CLOSED)
-- [ ] `orders` (listing_id, buyer_id, qty_ordered, price_per_item snapshot, total_amount, `order_status` PENDING/CONFIRMED/HANDED_OVER/CANCELLED)
-- [ ] `demand_transactions` (demand_pledge_id, gross_amount, koperasi_fee, net_amount, payment_method CASH/TRANSFER, payment_status UNPAID/PAID/SETTLED, paid_at)
-- [ ] `supply_transactions` (order_id, gross_amount, koperasi_fee, net_amount, payment_method, payment_status, paid_at)
-- [ ] `disputes` (demand_pledge_id nullable, order_id nullable, source_type DEMAND/SUPPLY, reported_by, reason, dispute_status OPEN/REVIEW/RESOLVED, resolution, resolved_at)
-- [ ] Kolom audit `user_input`/`tanggal_input`/`user_update`/`tanggal_update` + index status/FK utama
+**App DB (writable) — migrasi (skema baru)** — semua `[x]` di `backend/migrations/000001_init_schema.up.sql`
+- [x] `koperasi` (id, nama, desa, wilayah, kontak, status, **`koperasi_ref`**)
+- [x] `users` (koperasi_id nullable, name, phone, email, password_hash, role `BUYER/WARGA/ADMIN_KOPERASI`, status, **`anggota_ref`**, **`verification_status`**, **`verified_at`**)
+- [x] `verifications` (user_id, nik, id_card_file, support_doc_file, `status` PENDING/VERIFIED/REJECTED, reviewed_by, review_note, reviewed_at)
+- [x] `komoditas` (id, nama, kategori, satuan, **`komoditas_ref`**)
+- [x] `demands` (+ `demand_status` **DRAFT**/OPEN/PARTIAL/CLOSED/EXPIRED, **DP:** total_price, dp_percent, dp_amount, remaining_amount, dp_payment_method, `dp_status` UNPAID/PAID/FORFEITED/REFUNDED, dp_paid_at)
+- [x] `demand_pledges` (qty_pledged, qty_delivered, price_per_item, `pledge_status` PENDING/ACCEPTED/DELIVERED_TO_KOPERASI/HANDED_TO_BUYER/CANCELLED)
+- [x] `supply_listings` (qty_available, qty_sold, price_per_item, `listing_status` DRAFT/POSTED/SOLD_OUT/CLOSED)
+- [x] `orders` (qty_ordered, price_per_item snapshot, total_amount, `order_status` PENDING/CONFIRMED/HANDED_OVER/CANCELLED)
+- [x] `demand_transactions` / `supply_transactions` (gross_amount, koperasi_fee, net_amount, payment_method, payment_status UNPAID/PAID/SETTLED, paid_at)
+- [x] `disputes` (demand_pledge_id/order_id nullable, source_type DEMAND/SUPPLY, reported_by, reason, dispute_status, resolution, resolved_at)
+- [x] Kolom audit `user_input`/`tanggal_input`/`user_update`/`tanggal_update` + index status/FK utama + trigger tanggal_update
 
 **Reference DB (read-only) — layer baca & seed**
 - [x] Reference read-layer (repository read-only) — `backend/internal/reference/`; query koperasi, anggota, inventaris/produk × wilayah (join tervalidasi)
-- [ ] **Seed App DB dari KDMP:** `koperasi` ← `profil_koperasi`×`referensi_koperasi_wilayah`×`referensi_wilayah`; `komoditas` ← `referensi_komoditas_desa`; `users(WARGA)` ← `anggota_koperasi` (simpan `*_ref`)
+- [x] **Seed App DB dari KDMP** — `backend/cmd/seed` + `internal/seed`: `koperasi` (1.026) ← profil×wilayah; `komoditas` (8.191) ← referensi_komoditas_desa (kategori/satuan diderivasi); `users(WARGA)` (10 demo, bisa login) ← anggota_koperasi (simpan `*_ref`)
 - [ ] Validasi soft-ref: cek `koperasi_ref`/`anggota_ref`/`komoditas_ref` benar-benar ada di Reference DB saat penautan (+ cache resolve)
 - [ ] Script re-sync Reference DB: `pg_dump` remote → `pg_restore` ke `budes_ref_db` (dump ada di `deploy/dumps/`)
 
@@ -78,15 +76,15 @@
 - [ ] Halaman **Riwayatku** (aktivitas + rekap transaksi & komisi)
 - [ ] (Admin) Halaman **Tinjau Verifikasi** — daftar `PENDING`, aksi VERIFIED/REJECTED + catatan 🟡
 
-**Backend (Go)**
-- [ ] `POST /api/auth/register` (hash bcrypt; validasi `koperasi_ref`/`anggota_ref` ke Reference DB bila diisi) 🔴
+**Backend (Go)** — paket `internal/auth` (jwt, middleware, repo, service, handler)
+- [~] `POST /api/auth/register` (hash bcrypt ✅; **validasi `koperasi_ref`/`anggota_ref` ke Reference DB belum**) 🔴
 - [x] `GET /api/ref/koperasi?q=` & `GET /api/ref/anggota?q=` (lookup read-only KDMP untuk penautan identitas) 🟡
-- [ ] `POST /api/auth/login` → terbitkan JWT 🔴
-- [ ] Middleware autentikasi JWT + otorisasi peran 🔴
-- [ ] `POST /api/auth/logout` 🟡 · `GET /api/me` · `GET /api/me/riwayat`
-- [ ] `POST /api/verifikasi` (ajukan KYC) · `GET /api/verifikasi` (daftar; admin) · `PUT /api/verifikasi/:id` (ADMIN_KOPERASI: VERIFIED/REJECTED → set `users.verification_status`) 🟡
+- [x] `POST /api/auth/login` → terbitkan JWT (HS256) 🔴
+- [x] Middleware autentikasi JWT + otorisasi peran (`RequireRole`) 🔴
+- [x] `POST /api/auth/logout` (stateless) 🟡 · [x] `GET /api/me` · [ ] `GET /api/me/riwayat`
+- [x] `POST /api/verifikasi` (ajukan KYC) · `GET /api/verifikasi` (daftar; admin) · `PUT /api/verifikasi/:id` (ADMIN_KOPERASI: VERIFIED/REJECTED → set `users.verification_status`) 🟡 — paket `internal/verification`
 
-## Modul B — Alur A: Pasang Kebutuhan (Demand) `[high]` → `features/01-pasang-kebutuhan.md` 🔴
+## Modul B — Alur A: Pasang Kebutuhan (Demand) `[high]` → `features/01-pasang-kebutuhan.md` 🔴 · **Backend ✅ · Frontend ⬜**
 **Frontend**
 - [ ] Halaman **Jelajah Pasar** (publik) — daftar demand (hanya yang `OPEN`/DP terbayar) + indikator progress
 - [ ] Halaman **Buat Postingan Baru** (pilih komoditas, jumlah, satuan, target harga, tenggat) + tampil hitungan `total_price`/`dp_amount` (30%)/`remaining_amount`
@@ -94,53 +92,53 @@
 - [ ] Halaman **Detail Permintaan** — status DP + progress bar % tersanggupi + daftar penyanggup
 - [ ] Tombol **Sanggupi** (just-in-time auth)
 
-**Backend (Go)**
-- [ ] `POST /api/demands` (buat; butuh auth buyer; hitung total_price/dp_amount/remaining_amount; mulai `DRAFT`)
-- [ ] `POST /api/demands/:id/dp` (catat `dp_status = PAID`, `dp_paid_at`, metode) → demand `OPEN`
-- [ ] `GET /api/demands` (daftar publik; default hanya `OPEN`+) · `GET /api/demands/:id` (detail + agregasi pledge)
-- [ ] `POST /api/demands/:id/pledges` (warga menyanggupi; validasi ≤ sisa; update `fulfilled_qty`)
-- [ ] `GET /api/pledges` (milik warga login) · `PUT /api/pledges/:id` (status: ACCEPTED → DELIVERED_TO_KOPERASI → HANDED_TO_BUYER)
-- [ ] Logika status demand `DRAFT → OPEN → PARTIAL → CLOSED/EXPIRED` + anti over-pledge
-- [ ] Logika DP: `FORFEITED` bila buyer batal setelah OPEN · `REFUNDED` bila demand gagal/di-EXPIRED koperasi
+**Backend (Go)** — paket `internal/demand` (types, repo, service, handler); ✅ smoke-tested end-to-end
+- [x] `POST /api/demands` (auth BUYER; hitung total_price/dp_amount 30%/remaining_amount; mulai `DRAFT`)
+- [x] `POST /api/demands/:id/dp` (catat `dp_status=PAID`, `dp_paid_at`, metode) → demand `OPEN`
+- [x] `GET /api/demands` (publik; default `OPEN`+`PARTIAL`, filter `?status=`) · `GET /api/demands/:id` (detail + pledges)
+- [x] `POST /api/demands/:id/pledges` (auth WARGA; anti over-pledge via tx `FOR UPDATE`; update `fulfilled_qty`)
+- [x] `GET /api/pledges` (milik warga login) · `PUT /api/pledges/:id` (transisi status tervalidasi; CANCELLED kembalikan kuota)
+- [x] Logika status demand `DRAFT → OPEN → PARTIAL → CLOSED` + anti over-pledge
+- [~] Logika DP: `FORFEITED` via `POST /api/demands/:id/cancel` (buyer) ✅ · **`REFUNDED` (expire koperasi) belum**
 
-## Modul C — Alur B: Titip-Jual (Supply) `[high]` → `features/02-titip-jual.md` 🔴
+## Modul C — Alur B: Titip-Jual (Supply) `[high]` → `features/02-titip-jual.md` 🔴 · **Backend ✅ · Frontend ⬜**
 **Frontend**
 - [ ] Halaman **Etalase Listing** (publik) — komoditas warga yang siap dijual
 - [ ] Halaman **Titipkan Komoditas** (warga/koperasi buat listing: komoditas, qty, harga)
 - [ ] Halaman **Detail Listing** + tombol **Pesan** (just-in-time auth)
 - [ ] Halaman **Pesananku** (buyer) & **Titipanku** (warga)
 
-**Backend (Go)**
-- [ ] `POST /api/listings` (buat; warga/admin) · `GET /api/listings` (publik) · `GET /api/listings/:id`
-- [ ] `PUT /api/listings/:id` (status DRAFT/POSTED/SOLD_OUT/CLOSED, rekalkulasi `qty_available`/`qty_sold`)
-- [ ] `POST /api/orders` (buyer pesan; snapshot harga, hitung total) · `GET /api/orders` · `GET /api/orders/:id`
-- [ ] `PUT /api/orders/:id` (status PENDING → CONFIRMED → HANDED_OVER/CANCELLED) + anti over-order
+**Backend (Go)** — paket `internal/supply`; ✅ smoke-tested
+- [x] `POST /api/listings` (warga/admin) · `GET /api/listings` (publik) · `GET /api/listings/:id` · `GET /api/my/listings`
+- [x] `PUT /api/listings/:id` (status DRAFT/POSTED/SOLD_OUT/CLOSED)
+- [x] `POST /api/orders` (snapshot harga, total, anti over-order via tx) · `GET /api/orders` · `GET /api/orders/:id`
+- [x] `PUT /api/orders/:id` (PENDING → CONFIRMED, CANCELLED kembalikan stok; HANDED_OVER via verifikasi)
 
-## Modul D — Konfirmasi Serah-Terima `[high]` → `features/03-konfirmasi-terima.md` 🔴
+## Modul D — Konfirmasi Serah-Terima `[high]` → `features/03-konfirmasi-terima.md` 🔴 · **Backend ✅ · Frontend ⬜**
 **Frontend**
 - [ ] Halaman **Daftar Serah-Terima** (pledge DELIVERED_TO_KOPERASI / order CONFIRMED yang menunggu)
 - [ ] Aksi **Verifikasi Terima** — penuh & sebagian
 - [ ] Aksi **Lapor Masalah** (form alasan) → sengketa
 - [ ] Daftar diperbarui langsung tanpa reload
 
-**Backend (Go)**
-- [ ] `POST /api/pledges/:id/verifikasi` (alur A) → HANDED_TO_BUYER + trigger catat `demand_transactions`
-- [ ] `POST /api/orders/:id/verifikasi` (alur B) → HANDED_OVER + trigger catat `supply_transactions`
-- [ ] `POST /api/(pledges|orders)/:id/lapor` → buat `disputes` (source_type sesuai alur)
+**Backend (Go)** — paket `internal/settlement`; ✅ smoke-tested
+- [x] `POST /api/pledges/:id/verifikasi` (alur A) → HANDED_TO_BUYER + catat `demand_transactions` (qty parsial didukung)
+- [x] `POST /api/orders/:id/verifikasi` (alur B) → HANDED_OVER + catat `supply_transactions`
+- [x] `POST /api/pledges/:id/lapor` & `POST /api/orders/:id/lapor` → buat `disputes` (source_type sesuai alur)
 
-## Modul E — Pencatatan Transaksi Offline & Komisi `[high]` → `features/04-transaksi-komisi.md` 🔴
-> Menggantikan modul escrow. Tidak ada dana ditahan; sistem mencatat transaksi nyata + komisi.
+## Modul E — Pencatatan Transaksi Offline & Komisi `[high]` → `features/04-transaksi-komisi.md` 🔴 · **Backend ✅ · Frontend ⬜**
+> Menggantikan modul escrow. Tidak ada dana ditahan; sistem mencatat transaksi nyata + komisi (5%).
 **Frontend**
 - [ ] Status pembayaran per pledge/order (UNPAID/PAID/SETTLED) di Pantau/Pesananku
 - [ ] **Dashboard Koperasi** — pantau semua transaksi kedua alur + total komisi
 - [ ] Ringkasan pembukuan koperasi (rekap komisi per periode)
 
-**Backend (Go)**
-- [ ] Saat verifikasi terima: buat `*_transactions` (gross, hitung `koperasi_fee` %, `net_amount`, method, status awal)
-- [ ] `PUT /api/transactions/:id` (perbarui `payment_status` UNPAID → PAID → SETTLED, isi `paid_at`)
-- [ ] `GET /api/transactions` (filter per peran/koperasi/alur) · `GET /api/koperasi/:id/pembukuan` (rekap komisi)
-- [ ] Sengketa gotong royong: hanya transaksi pledge/order bermasalah yang tertahan status-nya; sisanya jalan
-- [ ] Semua mutasi tercatat (audit) — komisi masuk pembukuan koperasi
+**Backend (Go)** — paket `internal/settlement`; ✅ smoke-tested (komisi 5%)
+- [x] Saat verifikasi terima: buat `*_transactions` (gross, `koperasi_fee` 5%, `net_amount`, status awal UNPAID)
+- [x] `PUT /api/transactions/:kind/:id` (payment_status UNPAID → PAID → SETTLED, isi `paid_at`; admin)
+- [x] `GET /api/transactions` (per peran; admin lihat semua) · `GET /api/pembukuan` (rekap komisi demand+supply)
+- [~] Sengketa gotong royong per bagian: `lapor` per pledge/order ✅; penahanan dana otomatis belum (offline)
+- [x] Semua mutasi tercatat (audit `user_input`/`user_update`) — komisi masuk pembukuan
 
 ## Modul F — Sistem Notifikasi & Real-time `[medium]`
 - [ ] Setup **WebSocket** di backend Go (hub/broadcast per user & channel)
@@ -153,11 +151,12 @@
 ## Modul G — Matching & Broadcast Grounded (data KDMP) `[high]` 🟡
 > Diferensiator: mencocokkan kebutuhan (Demand) ke **kapasitas produksi & stok nyata** dari Reference DB.
 
-**Backend (Go) — read-only atas Reference DB**
-- [~] `GET /api/match/kandidat?item=&provinsi=` **selesai** (kandidat dari stok gerai nyata, join inventaris→koperasi→wilayah). TODO: bungkus jadi `GET /api/demands/:id/kandidat` (baca demand dari App DB → derive item/wilayah)
-- [ ] Tambah sinyal **komoditas unggulan desa** (`referensi_komoditas_desa`) sebagai sumber kandidat pra-pesan (bukan hanya stok gerai)
-- [~] Skoring: v1 = besar stok. TODO: kecocokan komoditas × ketersediaan × kedekatan wilayah + normalisasi nama/satuan (data variatif)
-- [ ] Broadcast tertarget: saat demand dibuat, tentukan set warga/koperasi relevan untuk notifikasi
+**Backend (Go) — read-only atas Reference DB** — paket `internal/match` + `internal/reference`
+- [x] `GET /api/match/kandidat?item=&provinsi=` (kandidat dari stok gerai nyata, join inventaris→koperasi→wilayah)
+- [x] `GET /api/demands/:id/kandidat` (baca demand dari App DB → derive item → stok gerai + potensi desa)
+- [x] Sinyal **komoditas unggulan desa** (`referensi_komoditas_desa` × wilayah, urut nilai potensi) — `MatchPotensiDesa`
+- [~] Skoring: v1 = besar stok / nilai potensi. TODO: kecocokan komoditas × ketersediaan × kedekatan wilayah + normalisasi nama
+- [ ] Broadcast tertarget: saat demand dibuat, tentukan set warga/koperasi relevan untuk notifikasi (butuh Modul F)
 
 **Frontend**
 - [ ] Di Detail Permintaan: seksi "Desa/koperasi yang berpotensi memenuhi" (dari kandidat)
