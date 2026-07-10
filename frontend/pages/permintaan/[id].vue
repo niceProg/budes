@@ -43,7 +43,7 @@ const pledges = computed(() =>
           <h3 class="mb-3.5 text-base font-extrabold">Penyanggup ({{ det.pledgeCount }})</h3>
           <div v-if="pledges.length" class="flex flex-col gap-2.5">
             <div v-for="(p, i) in pledges" :key="i" class="flex items-center gap-3 rounded-xl border border-sand-200 px-3.5 py-[11px]">
-              <div class="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-[#f6e3e1] text-[13px] font-extrabold text-clay-700">{{ p.initial }}</div>
+              <div class="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-gold-50 text-[13px] font-extrabold text-gold-700">{{ p.initial }}</div>
               <div class="min-w-0 flex-1">
                 <div class="text-[13.5px] font-bold">{{ p.name }}</div>
                 <div class="text-xs text-sand-700">{{ p.line }}</div>

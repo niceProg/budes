@@ -12,10 +12,10 @@ const isActive = (p: string) => (p === '/' ? route.path === '/' : route.path.sta
       class="sticky top-0 z-40 flex h-screen w-[228px] shrink-0 flex-col gap-1 border-r border-sand-400 bg-white p-[14px] px-[14px] py-5"
     >
       <div class="flex items-center gap-2.5 px-2 pb-[18px] pt-0.5">
-        <div class="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] bg-clay-600 text-sm font-extrabold text-white">BD</div>
+        <div class="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-pink-gradient text-sm font-extrabold text-white">BD</div>
         <div>
           <div class="text-[15px] font-extrabold leading-tight">Bursa Desa</div>
-          <div class="eyebrow text-sand-600">Panel Koperasi</div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-navy-600">Panel Koperasi</div>
         </div>
       </div>
       <NuxtLink to="/dashboard" class="sb" :class="isActive('/dashboard') ? 'sb-on' : 'sb-off'">Dashboard</NuxtLink>
@@ -38,17 +38,17 @@ const isActive = (p: string) => (p === '/' ? route.path === '/' : route.path.sta
   </div>
 
   <div v-else class="flex min-h-screen flex-col">
-    <header class="sticky top-0 z-40 border-b border-sand-400 bg-sand-50 shadow-[0_1px_5px_rgba(80,10,12,0.04)]">
-      <div class="mx-auto flex min-h-[60px] max-w-page flex-wrap items-center gap-x-3.5 gap-y-1 px-5">
+    <header class="sticky top-0 z-40 border-b border-gray-200 bg-white/95 shadow-[0_2px_20px_rgba(0,0,0,0.05)] backdrop-blur">
+      <div class="mx-auto flex min-h-[64px] max-w-page flex-wrap items-center gap-x-3.5 gap-y-1 px-8">
         <NuxtLink to="/" class="mr-2 flex items-center gap-2.5 py-2.5">
-          <div class="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] bg-clay-600 text-sm font-extrabold text-white">BD</div>
+          <div class="flex h-10 w-10 items-center justify-center rounded-[10px] bg-pink-gradient text-sm font-extrabold text-white">BD</div>
           <div>
-            <div class="text-base font-extrabold leading-tight">Bursa Desa</div>
-            <div class="eyebrow text-sand-600">Koperasi Desa Merah Putih</div>
+            <div class="font-heading text-base font-bold leading-tight text-pink-600">Bursa Desa</div>
+            <div class="text-[10px] font-medium text-gray-600">Koperasi Desa Merah Putih</div>
           </div>
         </NuxtLink>
 
-        <nav class="flex flex-wrap items-stretch">
+        <nav class="flex flex-wrap items-center gap-1">
           <NuxtLink to="/" class="nav" :class="isActive('/') ? 'nav-on' : 'nav-off'">Jelajah Pasar</NuxtLink>
           <NuxtLink to="/etalase" class="nav" :class="isActive('/etalase') ? 'nav-on' : 'nav-off'">Etalase</NuxtLink>
           <button v-if="app.isBuyer" class="nav nav-off" :class="{ 'nav-on': isActive('/buat') }" @click="app.ctaBuat()">Buat Permintaan</button>
@@ -79,13 +79,16 @@ const isActive = (p: string) => (p === '/' ? route.path === '/' : route.path.sta
       <slot />
     </main>
 
-    <footer class="border-t border-sand-400 bg-[#f3eae1] text-sand-700">
-      <div class="mx-auto flex max-w-page flex-wrap items-center justify-between gap-3.5 px-5 py-[26px]">
-        <div>
-          <div class="text-[15px] font-extrabold text-sand-900">Bursa Desa</div>
-          <div class="text-[12.5px]">Pasar gotong royong Koperasi Desa Merah Putih.</div>
+    <footer class="bg-navy-900 text-navy-350">
+      <div class="mx-auto flex max-w-page flex-wrap items-center justify-between gap-3.5 px-8 py-8">
+        <div class="flex items-center gap-2.5">
+          <div class="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] bg-white/10 text-sm font-extrabold text-gold-400">BD</div>
+          <div>
+            <div class="text-[15px] font-extrabold text-white">Bursa Desa</div>
+            <div class="text-[12.5px]">Pasar gotong royong Koperasi Desa Merah Putih.</div>
+          </div>
         </div>
-        <div class="text-xs">© 2026 Bursa Desa · Komisi koperasi 5% per transaksi · Prototipe demo</div>
+        <div class="text-xs text-navy-500">© 2026 Bursa Desa · Komisi koperasi 5% per transaksi · Prototipe demo</div>
       </div>
     </footer>
   </div>
@@ -93,13 +96,13 @@ const isActive = (p: string) => (p === '/' ? route.path === '/' : route.path.sta
 
 <style scoped>
 .nav {
-  @apply cursor-pointer border-b-[3px] border-t-[3px] border-transparent px-3 py-[19px] text-[13.5px] font-bold text-sand-800 transition hover:bg-sand-150;
+  @apply cursor-pointer rounded-lg px-3.5 py-2 text-[0.875rem] font-medium text-gray-700 transition hover:bg-pink-50 hover:text-pink-600;
 }
-.nav-on { @apply border-b-clay-600; }
-.nav-off { @apply border-b-transparent; }
+.nav-on { @apply bg-pink-50 text-pink-600; }
+.nav-off { @apply text-gray-700; }
 .sb {
-  @apply cursor-pointer rounded-[10px] px-3 py-[11px] text-left text-[13.5px] font-bold transition hover:bg-sand-150;
+  @apply cursor-pointer rounded-[10px] px-3 py-[11px] text-left text-[13.5px] font-semibold transition hover:bg-pink-50;
 }
-.sb-on { @apply bg-[#f6e8e4] text-clay-700; }
-.sb-off { @apply text-sand-800; }
+.sb-on { @apply bg-pink-50 text-pink-600; }
+.sb-off { @apply text-gray-700; }
 </style>

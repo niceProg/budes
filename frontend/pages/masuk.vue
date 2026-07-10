@@ -13,12 +13,12 @@ const app = useApp()
       <div class="flex">
         <button
           class="flex-1 py-3.5 text-sm font-extrabold transition"
-          :class="app.tab === 'masuk' ? 'bg-white text-clay-600' : 'bg-[#f5ebe3] text-sand-600'"
+          :class="app.tab === 'masuk' ? 'bg-white text-gold-700' : 'bg-navy-100 text-navy-600'"
           @click="app.tab = 'masuk'; app.authErr = ''"
         >Masuk</button>
         <button
           class="flex-1 py-3.5 text-sm font-extrabold transition"
-          :class="app.tab === 'daftar' ? 'bg-white text-clay-600' : 'bg-[#f5ebe3] text-sand-600'"
+          :class="app.tab === 'daftar' ? 'bg-white text-gold-700' : 'bg-navy-100 text-navy-600'"
           @click="app.tab = 'daftar'; app.authErr = ''"
         >Daftar</button>
       </div>
