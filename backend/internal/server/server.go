@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"time"
 
+	"budes/internal/auth"
 	"budes/internal/db"
 	"budes/internal/health"
 	"budes/internal/reference"
 )
 
 // New membangun handler HTTP lengkap dengan rute & middleware.
-func New(pools *db.Pools) http.Handler {
+func New(pools *db.Pools, jwtSecret string) http.Handler {
 	mux := http.NewServeMux()
 
 	h := health.New(pools)
@@ -22,6 +23,15 @@ func New(pools *db.Pools) http.Handler {
 	mux.HandleFunc("GET /api/ref/koperasi", ref.SearchKoperasi)
 	mux.HandleFunc("GET /api/ref/anggota", ref.SearchAnggota)
 	mux.HandleFunc("GET /api/match/kandidat", ref.MatchKandidat)
+
+	// --- Auth (Modul A) ---
+	jwtMgr := auth.NewManager(jwtSecret)
+	aRepo := auth.NewRepository(pools.App)
+	aH := auth.NewHandler(auth.NewService(aRepo, jwtMgr), aRepo)
+	mux.HandleFunc("POST /api/auth/register", aH.Register)
+	mux.HandleFunc("POST /api/auth/login", aH.Login)
+	mux.HandleFunc("POST /api/auth/logout", aH.Logout)
+	mux.Handle("GET /api/me", jwtMgr.Middleware(http.HandlerFunc(aH.Me)))
 
 	return chain(mux, recoverMW, logger, cors)
 }
