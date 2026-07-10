@@ -21,6 +21,8 @@ const isActive = (p: string) => (p === '/' ? route.path === '/' : route.path.sta
       <NuxtLink to="/dashboard" class="sb" :class="isActive('/dashboard') ? 'sb-on' : 'sb-off'">Dashboard</NuxtLink>
       <NuxtLink to="/" class="sb" :class="isActive('/') ? 'sb-on' : 'sb-off'">Jelajah Pasar</NuxtLink>
       <NuxtLink to="/etalase" class="sb" :class="isActive('/etalase') ? 'sb-on' : 'sb-off'">Etalase</NuxtLink>
+      <NuxtLink to="/harga" class="sb" :class="isActive('/harga') ? 'sb-on' : 'sb-off'">Pengaturan Harga</NuxtLink>
+      <NuxtLink to="/verifikasi" class="sb" :class="isActive('/verifikasi') ? 'sb-on' : 'sb-off'">Verifikasi Identitas</NuxtLink>
       <div class="flex-1" />
       <div class="mt-3.5 flex items-center gap-2.5 border-t border-sand-400 pt-3.5">
         <div class="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-clay-600 text-xs font-extrabold text-white">{{ app.userInitial }}</div>
@@ -50,8 +52,8 @@ const isActive = (p: string) => (p === '/' ? route.path === '/' : route.path.sta
 
         <nav class="flex flex-wrap items-center gap-1">
           <NuxtLink to="/" class="nav" :class="isActive('/') ? 'nav-on' : 'nav-off'">Jelajah Pasar</NuxtLink>
+          <NuxtLink v-if="app.isWarga" to="/permintaan" class="nav" :class="isActive('/permintaan') ? 'nav-on' : 'nav-off'">Permintaan</NuxtLink>
           <NuxtLink to="/etalase" class="nav" :class="isActive('/etalase') ? 'nav-on' : 'nav-off'">Etalase</NuxtLink>
-          <button v-if="app.isBuyer" class="nav nav-off" :class="{ 'nav-on': isActive('/buat') }" @click="app.ctaBuat()">Buat Permintaan</button>
           <NuxtLink v-if="app.isWarga" to="/titip" class="nav" :class="isActive('/titip') ? 'nav-on' : 'nav-off'">Titip Komoditas</NuxtLink>
           <NuxtLink v-if="app.isLoggedIn" to="/aktivitas" class="nav" :class="isActive('/aktivitas') ? 'nav-on' : 'nav-off'">Aktivitasku</NuxtLink>
         </nav>

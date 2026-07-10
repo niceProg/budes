@@ -40,8 +40,18 @@ interface Txn {
 interface Kyc {
   id: string
   name: string
+  role: 'WARGA' | 'BUYER'
+  status: 'PENDING' | 'VERIFIED' | 'REJECTED'
   nik: string
   doc: string
+  ktpFile: string
+}
+interface PriceCap {
+  id: string
+  komoditas: string
+  satuan: string
+  maxJual: number
+  maxBeli: number
 }
 type Pending =
   | { type: 'pledge'; id: string }
@@ -120,16 +130,29 @@ export const useApp = defineStore('app', {
       { id: 't5', kind: 'demand', item: 'Kopi Robusta Petik Merah', pihak: 'Wati Suharti → Budi Santoso', gross: 2600000, pay: 'UNPAID' },
     ] as Txn[],
     kyc: [
-      { id: 'k1', name: 'Slamet Riyadi', nik: '3402**********12', doc: 'KTP + surat keterangan desa' },
-      { id: 'k2', name: 'Siti Aminah', nik: '3402**********87', doc: 'KTP' },
+      { id: 'k1', name: 'Slamet Riyadi', role: 'WARGA', status: 'PENDING', nik: '3402011203920012', doc: 'Surat keterangan domisili desa', ktpFile: 'ktp-slamet-riyadi.jpg' },
+      { id: 'k2', name: 'Siti Aminah', role: 'WARGA', status: 'VERIFIED', nik: '3402014507870087', doc: 'Kartu Keluarga', ktpFile: 'ktp-siti-aminah.png' },
+      { id: 'k3', name: 'Budi Santoso', role: 'BUYER', status: 'PENDING', nik: '3174052208900055', doc: 'NPWP usaha kuliner', ktpFile: 'ktp-budi-santoso.jpeg' },
+      { id: 'k4', name: 'Toko Manis Jaya', role: 'BUYER', status: 'REJECTED', nik: '3273068811930041', doc: 'SIUP', ktpFile: 'ktp-toko-manis.jpg' },
     ] as Kyc[],
+    priceCaps: [
+      { id: 'pc1', komoditas: 'Beras', satuan: 'kg', maxJual: 13000, maxBeli: 15000 },
+      { id: 'pc2', komoditas: 'Jagung Pipil', satuan: 'kg', maxJual: 5500, maxBeli: 6500 },
+      { id: 'pc3', komoditas: 'Cabai Merah', satuan: 'kg', maxJual: 40000, maxBeli: 45000 },
+      { id: 'pc4', komoditas: 'Kopi Robusta', satuan: 'kg', maxJual: 68000, maxBeli: 75000 },
+      { id: 'pc5', komoditas: 'Kelapa', satuan: 'butir', maxJual: 3800, maxBeli: 4500 },
+    ] as PriceCap[],
 
     // UI transient
-    modal: null as null | 'auth' | 'pledge' | 'order',
+    modal: null as null | 'auth' | 'pledge' | 'order' | 'listingView' | 'listingEdit' | 'kycView',
     modErr: '',
     pledgeQty: '',
     pledgePrice: '',
     orderQty: '',
+    activeListingId: null as string | null,
+    activeKycId: null as string | null,
+    listEdit: { avail: '', harga: '', status: 'ACTIVE' },
+    listEditErr: '',
     pending: null as Pending,
     tab: 'masuk' as 'masuk' | 'daftar',
     loginEmail: '',
@@ -168,6 +191,49 @@ export const useApp = defineStore('app', {
     closeModal() {
       this.modal = null
       this.modErr = ''
+      this.activeListingId = null
+      this.activeKycId = null
+      this.listEditErr = ''
+    },
+
+    // ---- etalase: lihat / edit / hapus listing ----
+    viewListing(id: string) {
+      this.activeListingId = id
+      this.modal = 'listingView'
+    },
+    startEditListing(id: string) {
+      const l = this.listings.find((x) => x.id === id)
+      if (!l) return
+      this.activeListingId = id
+      this.listEdit = { avail: String(l.avail), harga: String(l.harga), status: l.status }
+      this.listEditErr = ''
+      this.modal = 'listingEdit'
+    },
+    saveListing() {
+      const l = this.listings.find((x) => x.id === this.activeListingId)
+      if (!l) return
+      const avail = parseFloat(this.listEdit.avail)
+      const harga = parseFloat(this.listEdit.harga)
+      if (!(avail >= 0) || !(harga > 0)) {
+        this.listEditErr = 'Stok harus ≥ 0 dan harga harus lebih dari 0.'
+        return
+      }
+      if (avail < l.sold) {
+        this.listEditErr = `Stok tidak boleh kurang dari yang sudah terjual (${l.sold}).`
+        return
+      }
+      l.avail = avail
+      l.harga = harga
+      l.status = this.listEdit.status
+      this.closeModal()
+      this.showToast('Listing etalase diperbarui.')
+    },
+    deleteListing(id: string) {
+      const l = this.listings.find((x) => x.id === id)
+      if (!l) return
+      if (import.meta.client && !window.confirm(`Hapus "${l.item_name}" dari etalase?`)) return
+      this.listings = this.listings.filter((x) => x.id !== id)
+      this.showToast('Listing dihapus dari etalase.')
     },
 
     // ---- auth ----
@@ -451,9 +517,26 @@ export const useApp = defineStore('app', {
       this.showToast(pay === 'PAID' ? 'Transaksi ditandai Dibayar.' : 'Transaksi ditandai Selesai.')
     },
     kycAct(id: string, ok: boolean) {
-      const idx = this.kyc.findIndex((x) => x.id === id)
-      if (idx >= 0) this.kyc.splice(idx, 1)
-      this.showToast(ok ? 'Anggota terverifikasi ✓' : 'Pengajuan ditolak.')
+      // Perbarui status (tidak dihapus) — bisa di-toggle terdaftar ⇄ ditolak.
+      const k = this.kyc.find((x) => x.id === id)
+      if (k) k.status = ok ? 'VERIFIED' : 'REJECTED'
+      if (this.modal === 'kycView') this.closeModal()
+      this.showToast(ok ? 'Anggota diverifikasi — status: Terdaftar ✓' : 'Anggota ditolak — status: Ditolak.')
+    },
+    viewKyc(id: string) {
+      this.activeKycId = id
+      this.modal = 'kycView'
+    },
+
+    // ---- pengaturan batas harga komoditas ----
+    savePriceCaps() {
+      this.showToast('Batas harga komoditas diperbarui.')
+    },
+    addPriceCap() {
+      this.priceCaps.push({ id: 'pc' + Date.now(), komoditas: '', satuan: 'kg', maxJual: 0, maxBeli: 0 })
+    },
+    removePriceCap(id: string) {
+      this.priceCaps = this.priceCaps.filter((x) => x.id !== id)
     },
   },
 })

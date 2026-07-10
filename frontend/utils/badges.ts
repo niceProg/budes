@@ -33,6 +33,12 @@ export const LISTING_BADGE: Map = {
   INACTIVE: { label: 'Nonaktif', cls: MUTE },
 }
 
+export const KYC_BADGE: Map = {
+  PENDING: { label: 'Menunggu', cls: WARN },
+  VERIFIED: { label: 'Terdaftar', cls: OK },
+  REJECTED: { label: 'Ditolak', cls: DANGER },
+}
+
 export const ORDER_BADGE: Map = {
   BARU: { label: 'Menunggu', cls: WARN },
   CONFIRMED: { label: 'Dikonfirmasi', cls: OK },
