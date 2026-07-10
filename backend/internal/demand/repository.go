@@ -188,10 +188,10 @@ func (r *Repository) CreatePledge(ctx context.Context, demandID, wargaID string,
 	return &Pledge{ID: pid, DemandID: demandID, WargaID: wargaID, QtyPledged: qty, PricePerItem: price, PledgeStatus: "PENDING"}, nil
 }
 
+// forwardTransitions untuk PUT generik. HANDED_TO_BUYER hanya via endpoint verifikasi (Modul D).
 var forwardTransitions = map[string][]string{
-	"PENDING":               {"ACCEPTED", "CANCELLED"},
-	"ACCEPTED":              {"DELIVERED_TO_KOPERASI", "CANCELLED"},
-	"DELIVERED_TO_KOPERASI": {"HANDED_TO_BUYER"},
+	"PENDING":  {"ACCEPTED", "CANCELLED"},
+	"ACCEPTED": {"DELIVERED_TO_KOPERASI", "CANCELLED"},
 }
 
 // UpdatePledgeStatus memvalidasi transisi & otorisasi, lalu memperbarui status.

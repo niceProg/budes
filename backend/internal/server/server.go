@@ -11,6 +11,7 @@ import (
 	"budes/internal/demand"
 	"budes/internal/health"
 	"budes/internal/reference"
+	"budes/internal/settlement"
 	"budes/internal/supply"
 )
 
@@ -63,6 +64,16 @@ func New(pools *db.Pools, jwtSecret string) http.Handler {
 	mux.Handle("GET /api/orders", role(sH.MyOrders, "BUYER"))
 	mux.Handle("GET /api/orders/{id}", auth1(sH.OrderDetail))
 	mux.Handle("PUT /api/orders/{id}", auth1(sH.SetOrderStatus))
+
+	// --- Settlement (Modul D+E: serah-terima, transaksi/komisi, sengketa) ---
+	stH := settlement.NewHandler(settlement.NewRepository(pools.App))
+	mux.Handle("POST /api/pledges/{id}/verifikasi", role(stH.VerifyPledge, "BUYER"))
+	mux.Handle("POST /api/orders/{id}/verifikasi", role(stH.VerifyOrder, "BUYER"))
+	mux.Handle("POST /api/pledges/{id}/lapor", auth1(stH.LaporPledge))
+	mux.Handle("POST /api/orders/{id}/lapor", auth1(stH.LaporOrder))
+	mux.Handle("GET /api/transactions", auth1(stH.List))
+	mux.Handle("PUT /api/transactions/{kind}/{id}", role(stH.UpdatePayment, "ADMIN_KOPERASI"))
+	mux.Handle("GET /api/pembukuan", role(stH.Pembukuan, "ADMIN_KOPERASI"))
 
 	return chain(mux, recoverMW, logger, cors)
 }

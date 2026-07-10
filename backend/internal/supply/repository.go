@@ -204,9 +204,10 @@ func (r *Repository) GetOrder(ctx context.Context, id string) (*Order, error) {
 	return &o, err
 }
 
+// orderTransitions untuk PUT generik. HANDED_OVER hanya via endpoint verifikasi (Modul D).
 var orderTransitions = map[string][]string{
 	"PENDING":   {"CONFIRMED", "CANCELLED"},
-	"CONFIRMED": {"HANDED_OVER", "CANCELLED"},
+	"CONFIRMED": {"CANCELLED"},
 }
 
 // SetOrderStatus mengubah status pesanan; CANCELLED mengembalikan stok listing.
