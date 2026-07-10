@@ -33,6 +33,18 @@ type Anggota struct {
 	Nama        string `json:"nama"`
 }
 
+// PotensiDesa = sinyal kapasitas produksi komoditas unggulan desa (pra-pesan, Modul G).
+type PotensiDesa struct {
+	KomoditasRef  string `json:"komoditas_ref"`
+	NamaKomoditas string `json:"nama_komoditas"`
+	Provinsi      string `json:"provinsi"`
+	KabKota       string `json:"kab_kota"`
+	Kecamatan     string `json:"kecamatan"`
+	Desa          string `json:"desa"`
+	Volume        string `json:"volume"`
+	NilaiPotensi  int64  `json:"nilai_potensi_desa"`
+}
+
 // Kandidat = koperasi kandidat pemenuh sebuah kebutuhan (Modul G).
 type Kandidat struct {
 	KoperasiRef  string  `json:"koperasi_ref"`
@@ -127,6 +139,37 @@ func (r *Repository) MatchKandidat(ctx context.Context, item, provinsi string, l
 		}
 		k.Score = k.Stok
 		out = append(out, k)
+	}
+	return out, rows.Err()
+}
+
+// MatchPotensiDesa mencari desa berpotensi memproduksi sebuah komoditas (pra-pesan),
+// dari referensi_komoditas_desa × wilayah. provinsi kosong = tak difilter.
+// Diurutkan berdasarkan nilai potensi ekonomi desa.
+func (r *Repository) MatchPotensiDesa(ctx context.Context, item, provinsi string, limit int) ([]PotensiDesa, error) {
+	const sql = `
+		SELECT k.komoditas_ref, COALESCE(k.nama_komoditas,''),
+		       COALESCE(w.provinsi,''), COALESCE(w.kab_kota,''), COALESCE(w.kecamatan,''),
+		       COALESCE(w.desa_kelurahan,''), COALESCE(k.volume,''), COALESCE(k.nilai_potensi_desa,0)
+		FROM referensi_komoditas_desa k
+		LEFT JOIN referensi_wilayah w ON w.kode_wilayah = k.kode_wilayah
+		WHERE k.nama_komoditas ILIKE '%' || $1 || '%'
+		  AND ($2 = '' OR w.provinsi = $2)
+		ORDER BY k.nilai_potensi_desa DESC NULLS LAST
+		LIMIT $3`
+	rows, err := r.pool.Query(ctx, sql, item, provinsi, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []PotensiDesa{}
+	for rows.Next() {
+		var p PotensiDesa
+		if err := rows.Scan(&p.KomoditasRef, &p.NamaKomoditas, &p.Provinsi, &p.KabKota,
+			&p.Kecamatan, &p.Desa, &p.Volume, &p.NilaiPotensi); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
 	}
 	return out, rows.Err()
 }
