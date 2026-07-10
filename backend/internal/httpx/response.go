@@ -4,6 +4,7 @@ package httpx
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 )
 
 // JSON menulis payload apa pun sebagai JSON dengan status kode tertentu.
@@ -21,6 +22,21 @@ func OK(w http.ResponseWriter, data any) {
 // Error membungkus pesan error: {"error": "..."}.
 func Error(w http.ResponseWriter, status int, msg string) {
 	JSON(w, status, map[string]any{"error": msg})
+}
+
+// Paginate membaca ?limit=&offset= dengan default limit 50 (maks 100) & offset 0.
+func Paginate(r *http.Request) (limit, offset int) {
+	limit, offset = 50, 0
+	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n > 0 {
+		limit = n
+		if limit > 100 {
+			limit = 100
+		}
+	}
+	if n, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && n > 0 {
+		offset = n
+	}
+	return limit, offset
 }
 
 // Decode membaca body JSON request ke dst. Kembalikan false + tulis 400 bila gagal.

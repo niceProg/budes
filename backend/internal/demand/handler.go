@@ -23,7 +23,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	if s := r.URL.Query().Get("status"); s != "" {
 		statuses = splitCSV(s)
 	}
-	res, err := h.repo.List(r.Context(), statuses)
+	limit, offset := httpx.Paginate(r)
+	res, err := h.repo.List(r.Context(), statuses, limit, offset)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
@@ -78,6 +79,20 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.OK(w, "demand dibatalkan")
+}
+
+// Expire: POST /api/demands/{id}/expire (ADMIN_KOPERASI) — demand gagal → EXPIRED + DP REFUNDED
+func (h *Handler) Expire(w http.ResponseWriter, r *http.Request) {
+	n, err := h.repo.ExpireDemand(r.Context(), r.PathValue("id"))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if n == 0 {
+		httpx.Error(w, http.StatusConflict, "demand tidak bisa di-expire (sudah CLOSED/EXPIRED)")
+		return
+	}
+	httpx.OK(w, "demand di-EXPIRED; DP dikembalikan (REFUNDED) bila sudah dibayar")
 }
 
 // CreatePledge: POST /api/demands/{id}/pledges (WARGA)

@@ -12,6 +12,8 @@ services:
       - "5433:5432"   # host 5433 → hindari bentrok Postgres lokal lain
     volumes:
       - ref_db_data:/var/lib/postgresql   # PG18: mount di root, bukan /data
+      - ./ref-initdb:/docker-entrypoint-initdb.d:ro   # auto-restore dump saat init pertama
+      - ./dumps:/dumps:ro                              # dump KDMP (gitignored; sediakan via sync-ref-db.sh)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U budes -d hackathon_2026"]
       interval: 5s
@@ -36,6 +38,31 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Backend Go (REST API) — migrasi + seed dari KDMP saat start, lalu melayani :8080.
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: budes_api
+    restart: unless-stopped
+    depends_on:
+      app-db:
+        condition: service_healthy
+      ref-db:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      APP_DATABASE_URL: postgres://budes:budes@app-db:5432/budes_app
+      REF_DATABASE_URL: postgres://budes:budes@ref-db:5432/hackathon_2026
+      JWT_SECRET: ${JWT_SECRET:-budes-dev-secret-change-me}
+      # Notifikasi WhatsApp — isi lewat deploy/.env (jangan commit rahasia)
+      WA_BASE_URL: ${WA_BASE_URL:-}
+      WA_SESSION: ${WA_SESSION:-default}
+      WA_API_KEY: ${WA_API_KEY:-}
+      WA_GROUP_CHAT_ID: ${WA_GROUP_CHAT_ID:-120363428225078710@g.us}
+    ports:
+      - "8080:8080"
 
 volumes:
   ref_db_data:
