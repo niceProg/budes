@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+  body {
+    @apply bg-navy-150 text-navy-800 antialiased;
+    line-height: 1.7;
+  }
+}
+
+@layer components {
+  /* ---- Tombol ---- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5
+           text-sm font-bold transition
+           focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  /* Primer = gradien emas (tanda tangan desain) */
+  .btn-primary {
+    @apply btn bg-gold-gradient text-white shadow-[0_10px_25px_rgba(176,141,72,0.25)]
+           hover:brightness-105;
+  }
+  .btn-navy   { @apply btn bg-navy-900 text-white hover:bg-navy-800; }
+  .btn-outline { @apply btn border border-navy-350 bg-white text-navy-800 hover:border-gold-600 hover:text-navy-900; }
+  .btn-soft    { @apply btn bg-gold-50 text-gold-700 border border-gold-200 hover:bg-gold-100; }
+  .btn-ghost   { @apply btn text-navy-700 hover:bg-navy-150; }
+  .btn-success { @apply btn bg-success-600 text-white hover:bg-success-700; }
+  .btn-block   { @apply w-full; }
+
+  /* ---- Kartu ---- */
+  .card { @apply rounded-2xl border border-navy-400 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.04)]; }
+  .card-hover { @apply transition duration-300 hover:-translate-y-2 hover:border-gold-600 hover:shadow-lift; }
+
+  /* ---- Form ---- */
+  .field-label { @apply mb-1.5 block text-[12.5px] font-bold text-navy-700; }
+  .field-input {
+    @apply w-full rounded-xl border border-navy-350 bg-white px-3.5 py-2.5
+           text-sm text-navy-900 outline-none transition
+           focus:border-gold-500 focus:ring-1 focus:ring-gold-500;
+  }
+
+  /* ---- Chip & badge ---- */
+  .chip { @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold; }
+  .badge { @apply inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold leading-none; }
+
+  /* ---- Progress ---- */
+  .progress { @apply overflow-hidden rounded-full bg-navy-200; }
+  .progress > span { @apply block h-full rounded-full bg-gold-gradient transition-all; }
+
+  /* ---- Kontainer halaman ---- */
+  .page { @apply mx-auto w-full max-w-page px-8; }
+
+  /* ---- Elemen landing (diadaptasi dari /views) ---- */
+  /* Tag pil emas di atas judul section */
+  .section-tag {
+    @apply inline-block rounded-full bg-gold-gradient px-4 py-1.5 text-[11px] font-bold
+           uppercase tracking-[1px] text-white;
+  }
+  /* Judul section terpusat + garis bawah emas */
+  .section-title { @apply mb-10 mt-4 text-center; }
+  .section-title h2 {
+    @apply relative inline-block text-[2rem] font-extrabold leading-tight text-navy-900;
+  }
+  .section-title h2::after {
+    content: '';
+    @apply absolute -bottom-2.5 left-1/2 h-1 w-14 -translate-x-1/2 rounded-full bg-gold-gradient;
+  }
+  .section-title p { @apply mx-auto mt-4 max-w-2xl text-[1.05rem] text-navy-600; }
+
+  /* Lingkaran nomor tahapan/alur */
+  .step-circle {
+    @apply flex h-16 w-16 items-center justify-center rounded-full bg-gold-gradient text-2xl
+           text-white shadow-[0_4px_20px_rgba(176,141,72,0.35)] transition;
+  }
+  .step-card {
+    @apply rounded-2xl border border-gold-200 bg-white p-5 text-center shadow-[0_8px_24px_rgba(15,23,42,0.06)]
+           transition duration-300;
+  }
+}
