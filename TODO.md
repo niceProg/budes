@@ -140,13 +140,15 @@
 - [~] Sengketa gotong royong per bagian: `lapor` per pledge/order ✅; penahanan dana otomatis belum (offline)
 - [x] Semua mutasi tercatat (audit `user_input`/`user_update`) — komisi masuk pembukuan
 
-## Modul F — Sistem Notifikasi & Real-time `[medium]`
-- [ ] Setup **WebSocket** di backend Go (hub/broadcast per user & channel)
-- [ ] Frontend: koneksi WS + update status pledge/order/transaksi langsung
-- [ ] **Broadcast Kebutuhan**: notif ke warga saat ada demand baru — **tertarget via Matching grounded (Modul G)**
-- [ ] **Update Status**: notif saat disanggupi/dipesan/diserahkan/dibayar
-- [ ] **Peringatan Tenggat**: pengingat 24 jam sebelum batas 🟡
-- [ ] Notifikasi in-app (bell) + fallback polling bila WS gagal
+## Modul F — Sistem Notifikasi `[medium]` — **via WhatsApp (OpenWA), BUKAN WebSocket** · Backend ✅
+> Keputusan: notifikasi lewat **gateway OpenWA** (`POST {base}/api/sessions/{session}/messages/send-text`, header `X-API-Key`), broadcast ke grup. Paket `internal/notify`.
+- [x] Client WhatsApp + `Broadcast` fire-and-forget + no-op saat nonaktif; config via env (`WA_*`)
+- [x] **Broadcast Kebutuhan**: demand OPEN (DP dibayar) → "🛒 Kebutuhan Baru" ke grup
+- [x] **Update Status**: verifikasi terima (dana cair) → "✅ Transaksi Selesai"
+- [x] `POST /api/notify/test` (admin) untuk uji manual
+- [x] **Uji live SUKSES** (session `u1-kdmp`): manual + broadcast "Kebutuhan Baru" saat demand OPEN → pesan masuk grup (HTTP 200, status SENT)
+- [x] Event tambahan: **sanggupan baru** (progres), **listing POSTED** (komoditas baru), **hasil KYC** (per-user via `users.phone`)
+- [x] **Peringatan Tenggat**: scheduler H-24 (paket `internal/scheduler`, broadcast sekali/demand via `deadline_reminded_at`) 🟡
 
 ## Modul G — Matching & Broadcast Grounded (data KDMP) `[high]` 🟡
 > Diferensiator: mencocokkan kebutuhan (Demand) ke **kapasitas produksi & stok nyata** dari Reference DB.
@@ -155,8 +157,8 @@
 - [x] `GET /api/match/kandidat?item=&provinsi=` (kandidat dari stok gerai nyata, join inventaris→koperasi→wilayah)
 - [x] `GET /api/demands/:id/kandidat` (baca demand dari App DB → derive item → stok gerai + potensi desa)
 - [x] Sinyal **komoditas unggulan desa** (`referensi_komoditas_desa` × wilayah, urut nilai potensi) — `MatchPotensiDesa`
-- [~] Skoring: v1 = besar stok / nilai potensi. TODO: kecocokan komoditas × ketersediaan × kedekatan wilayah + normalisasi nama
-- [ ] Broadcast tertarget: saat demand dibuat, tentukan set warga/koperasi relevan untuk notifikasi (butuh Modul F)
+- [~] Skoring: v1 = besar stok / nilai potensi + filter provinsi + `?limit=`. TODO v2: kecocokan komoditas × ketersediaan × kedekatan wilayah + normalisasi nama
+- [~] Broadcast: saat demand OPEN → broadcast ke grup WA (via notify). TODO: tertarget per warga/koperasi relevan (butuh nomor per-warga)
 
 **Frontend**
 - [ ] Di Detail Permintaan: seksi "Desa/koperasi yang berpotensi memenuhi" (dari kandidat)
@@ -174,14 +176,15 @@
 - [ ] SSR/meta untuk Jelajah Pasar & Etalase Listing (SEO sebelum login)
 
 ### Testing & Kualitas 🟡
-- [ ] Go: unit test logika komisi, anti over-pledge/over-order, sengketa parsial, transisi status
-- [ ] Go: integration test endpoint utama (auth, demands+pledges, listings+orders, verifikasi, transaksi)
+- [~] Go: unit test logika inti ✅ (DP, komisi 5%, transisi status, derivasi kategori — `go test ./...` hijau); anti over-pledge/over-order & sengketa parsial diuji via smoke test
+- [x] **Integration test** alur inti (`internal/server/integration_test.go`, tag `integration`, WA off) — register→demand→DP→pledge→verifikasi→CLOSED + RBAC/over-pledge; smoke test manual juga menyeluruh
 - [ ] Frontend: test komponen & alur utama (Vitest)
-- [ ] Lint/format: `golangci-lint` + `gofmt` (Go), ESLint + Prettier (Nuxt)
+- [~] Lint/format: `go vet` hijau ✅; `golangci-lint`/ESLint/Prettier belum
 
 ### Deployment 🟡
-- [ ] `Dockerfile` untuk Nuxt (build SSR) & Go (multi-stage build)
-- [ ] Docker Compose produksi + migrasi & seed otomatis saat start
+- [~] **Dockerfile Go (multi-stage) ✅** (`backend/Dockerfile`, image 78MB) + entrypoint migrate→seed→api; Nuxt belum
+- [x] Docker Compose: service `api` + `app-db` + `ref-db`, **migrasi & seed otomatis saat start** (idempoten)
+- [x] **Auto-restore dump KDMP ke ref-db** saat init pertama (`deploy/ref-initdb/`) + pagination (`?limit/offset`) di endpoint list
 - [ ] HTTPS/reverse proxy (Caddy/Nginx/Traefik), env produksi, backup DB
 - [ ] CI sederhana: test + lint + build image saat push 🟢
 

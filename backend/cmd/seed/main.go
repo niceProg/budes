@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"time"
 
 	"budes/internal/config"
@@ -23,6 +24,15 @@ func main() {
 		log.Fatalf("koneksi database: %v", err)
 	}
 	defer pools.Close()
+
+	// Lewati bila App DB sudah ter-seed (kecuali SEED_FORCE=1) — aman untuk restart container.
+	if os.Getenv("SEED_FORCE") != "1" {
+		var n int
+		if err := pools.App.QueryRow(ctx, `SELECT count(*) FROM koperasi`).Scan(&n); err == nil && n > 0 {
+			log.Printf("seed: sudah ada data (koperasi=%d) — dilewati (set SEED_FORCE=1 untuk paksa)", n)
+			return
+		}
+	}
 
 	log.Println("mulai seed dari KDMP → App DB...")
 	res, err := seed.Run(ctx, pools)

@@ -6,13 +6,19 @@ import (
 
 	"budes/internal/auth"
 	"budes/internal/httpx"
+	"budes/internal/notify"
 )
 
 // Handler mengekspos endpoint verifikasi KYC.
-type Handler struct{ repo *Repository }
+type Handler struct {
+	repo     *Repository
+	notifier *notify.Notifier
+}
 
 // NewHandler membuat handler verification.
-func NewHandler(repo *Repository) *Handler { return &Handler{repo: repo} }
+func NewHandler(repo *Repository, notifier *notify.Notifier) *Handler {
+	return &Handler{repo: repo, notifier: notifier}
+}
 
 // Submit: POST /api/verifikasi (auth)
 func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +61,7 @@ func (h *Handler) Review(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "status harus VERIFIED atau REJECTED")
 		return
 	}
-	err := h.repo.Review(r.Context(), r.PathValue("id"), auth.UserID(r.Context()), in.Status, in.ReviewNote)
+	phone, err := h.repo.Review(r.Context(), r.PathValue("id"), auth.UserID(r.Context()), in.Status, in.ReviewNote)
 	if errors.Is(err, ErrNotFound) {
 		httpx.Error(w, http.StatusNotFound, err.Error())
 		return
@@ -63,6 +69,13 @@ func (h *Handler) Review(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
+	}
+	if phone != nil {
+		pesan := "✅ Verifikasi identitas Anda *DISETUJUI*. Selamat datang di Bursa Desa!"
+		if in.Status == "REJECTED" {
+			pesan = "❌ Verifikasi identitas Anda *DITOLAK*. Silakan ajukan ulang dengan dokumen yang benar."
+		}
+		h.notifier.NotifyPhone(*phone, pesan)
 	}
 	httpx.OK(w, "verifikasi "+in.Status)
 }

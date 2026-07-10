@@ -49,10 +49,10 @@ func (r *Repository) CreateListing(ctx context.Context, wargaID string, in Creat
 	return id, err
 }
 
-// ListPosted mengembalikan listing status tertentu (default etalase POSTED).
-func (r *Repository) List(ctx context.Context, statuses []string) ([]Listing, error) {
+// List mengembalikan listing status tertentu (default etalase POSTED), berpaginasi.
+func (r *Repository) List(ctx context.Context, statuses []string, limit, offset int) ([]Listing, error) {
 	rows, err := r.pool.Query(ctx, `SELECT `+listingCols+` FROM supply_listings
-		WHERE listing_status = ANY($1) ORDER BY tanggal_input DESC LIMIT 100`, statuses)
+		WHERE listing_status = ANY($1) ORDER BY tanggal_input DESC LIMIT $2 OFFSET $3`, statuses, limit, offset)
 	if err != nil {
 		return nil, err
 	}

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 
+	"budes/internal/reference"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -25,10 +27,13 @@ type RegisterInput struct {
 type Service struct {
 	repo *Repository
 	jwt  *Manager
+	ref  *reference.Repository // validasi soft-ref ke KDMP (read-only)
 }
 
 // NewService membuat service auth.
-func NewService(repo *Repository, jwt *Manager) *Service { return &Service{repo: repo, jwt: jwt} }
+func NewService(repo *Repository, jwt *Manager, ref *reference.Repository) *Service {
+	return &Service{repo: repo, jwt: jwt, ref: ref}
+}
 
 // Register memvalidasi, hash password, menyimpan user, dan menerbitkan token.
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*User, string, error) {
@@ -38,6 +43,16 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*User, string
 	}
 	if !validRoles[in.Role] {
 		return nil, "", errors.New("role harus BUYER, WARGA, atau ADMIN_KOPERASI")
+	}
+	// Validasi soft-ref anggota_ref ke dataset KDMP bila diisi.
+	if in.AnggotaRef != nil && strings.TrimSpace(*in.AnggotaRef) != "" {
+		ok, err := s.ref.AnggotaRefExists(ctx, *in.AnggotaRef)
+		if err != nil {
+			return nil, "", err
+		}
+		if !ok {
+			return nil, "", errors.New("anggota_ref tidak ditemukan di data KDMP")
+		}
 	}
 	exists, err := s.repo.EmailExists(ctx, in.Email)
 	if err != nil {
