@@ -81,7 +81,7 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, "demand dibatalkan")
 }
 
-// Expire: POST /api/demands/{id}/expire (ADMIN_KOPERASI) — demand gagal → EXPIRED + DP REFUNDED
+// Expire: POST /api/demands/{id}/expire (ADMIN_KOPERASI) — demand gagal → CANCELLED + DP REFUNDED
 func (h *Handler) Expire(w http.ResponseWriter, r *http.Request) {
 	n, err := h.repo.ExpireDemand(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -89,10 +89,10 @@ func (h *Handler) Expire(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n == 0 {
-		httpx.Error(w, http.StatusConflict, "demand tidak bisa di-expire (sudah CLOSED/EXPIRED)")
+		httpx.Error(w, http.StatusConflict, "demand tidak bisa di-expire (sudah FULFILLED/CANCELLED)")
 		return
 	}
-	httpx.OK(w, "demand di-EXPIRED; DP dikembalikan (REFUNDED) bila sudah dibayar")
+	httpx.OK(w, "demand di-CANCELLED; DP dikembalikan (REFUNDED) bila sudah dibayar")
 }
 
 // CreatePledge: POST /api/demands/{id}/pledges (WARGA)

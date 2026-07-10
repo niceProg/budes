@@ -46,9 +46,9 @@ func (h *Handler) CreateListing(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, map[string]any{"data": l})
 }
 
-// List: GET /api/listings?status=POSTED (publik)
+// List: GET /api/listings?status=ACTIVE (publik)
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	statuses := []string{"POSTED"}
+	statuses := []string{"ACTIVE"}
 	if s := r.URL.Query().Get("status"); s != "" {
 		statuses = strings.Split(s, ",")
 	}
@@ -95,14 +95,14 @@ func (h *Handler) SetListingStatus(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	if in.Status == "POSTED" {
+	if in.Status == "ACTIVE" {
 		if l, e := h.repo.GetListing(r.Context(), r.PathValue("id")); e == nil {
 			satuan := ""
 			if l.Satuan != nil {
 				satuan = " " + *l.Satuan
 			}
 			h.notifier.Broadcast(fmt.Sprintf("🌾 *Komoditas Baru di Bursa Desa*\n%s — %d%s tersedia @Rp%.0f/item\n\nBeli sekarang di Budes!",
-				l.ItemName, l.QtyAvailable-l.QtySold, satuan, l.PricePerItem))
+				l.ItemName, l.Avail-l.Sold, satuan, l.Harga))
 		}
 	}
 	httpx.OK(w, "status listing diperbarui")

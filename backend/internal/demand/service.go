@@ -72,11 +72,11 @@ func newDemandMessage(d *Demand) string {
 		satuan = " " + *d.Satuan
 	}
 	harga := ""
-	if d.TargetPricePerItem != nil {
-		harga = fmt.Sprintf("\nHarga: Rp%.0f/item", *d.TargetPricePerItem)
+	if d.Harga != nil {
+		harga = fmt.Sprintf("\nHarga: Rp%.0f/item", *d.Harga)
 	}
 	return fmt.Sprintf("🛒 *Kebutuhan Baru di Bursa Desa*\nBarang: %s\nJumlah: %d%s%s\n\nAyo warga desa menyanggupi! 🌾",
-		d.ItemName, d.TotalQty, satuan, harga)
+		d.ItemName, d.Total, satuan, harga)
 }
 
 // Pledge menyanggupi demand (gotong royong).
@@ -90,13 +90,13 @@ func (s *Service) Pledge(ctx context.Context, demandID, wargaID string, qty int,
 	}
 	if d, e := s.repo.Get(ctx, demandID); e == nil && d != nil {
 		s.notifier.Broadcast(fmt.Sprintf("🤝 *Sanggupan Baru* untuk '%s'\nDisanggupi: %d — progres %d/%d%s",
-			d.ItemName, qty, d.FulfilledQty, d.TotalQty, closedNote(d.DemandStatus)))
+			d.ItemName, qty, d.Fulfilled, d.Total, closedNote(d.Status)))
 	}
 	return p, nil
 }
 
 func closedNote(status string) string {
-	if status == "CLOSED" {
+	if status == "FULFILLED" {
 		return " ✅ (kebutuhan TERPENUHI)"
 	}
 	return ""

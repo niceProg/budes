@@ -5,17 +5,18 @@ package settlement
 // KoperasiFeePercent = komisi koperasi per transaksi (persen).
 const KoperasiFeePercent = 5.0
 
-// Txn adalah baris transaksi (demand/supply) yang diseragamkan.
+// Txn adalah baris transaksi (demand/supply) yang diseragamkan (bentuk JSON = kontrak frontend).
 type Txn struct {
 	ID            string  `json:"id"`
-	Kind          string  `json:"kind"` // DEMAND | SUPPLY
-	RefID         string  `json:"ref_id"`
-	GrossAmount   float64 `json:"gross_amount"`
-	KoperasiFee   float64 `json:"koperasi_fee"`
-	NetAmount     float64 `json:"net_amount"`
-	PaymentMethod *string `json:"payment_method"`
-	PaymentStatus string  `json:"payment_status"`
-	ItemName      string  `json:"item_name,omitempty"`
+	Kind          string  `json:"kind"`  // demand | supply (lowercase)
+	Item          string  `json:"item"`  // item_name
+	Pihak         string  `json:"pihak"` // "{warga} → {buyer}"
+	Gross         float64 `json:"gross"` // gross_amount
+	Pay           string  `json:"pay"`   // payment_status
+	RefID         string  `json:"ref_id,omitempty"`
+	KoperasiFee   float64 `json:"koperasi_fee,omitempty"`
+	NetAmount     float64 `json:"net_amount,omitempty"`
+	PaymentMethod *string `json:"payment_method,omitempty"`
 	BuyerID       string  `json:"buyer_id,omitempty"`
 	WargaID       string  `json:"warga_id,omitempty"`
 }

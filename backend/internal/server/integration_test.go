@@ -99,7 +99,7 @@ func TestIntegrationDemandFlow(t *testing.T) {
 		t.Fatalf("pay DP: %d %v", code, out)
 	}
 
-	// warga pledge penuh → CLOSED
+	// warga pledge penuh → FULFILLED
 	code, out = c.do("POST", "/api/demands/"+demandID+"/pledges", wargaTok, map[string]any{"qty_pledged": 100})
 	if code != 201 {
 		t.Fatalf("pledge: %d %v", code, out)
@@ -111,9 +111,7 @@ func TestIntegrationDemandFlow(t *testing.T) {
 		t.Fatalf("over-pledge harus 409, dapat %d", code)
 	}
 
-	// transisi → DELIVERED_TO_KOPERASI
-	c.do("PUT", "/api/pledges/"+pledgeID, wargaTok, map[string]any{"status": "ACCEPTED"})
-	c.do("PUT", "/api/pledges/"+pledgeID, wargaTok, map[string]any{"status": "DELIVERED_TO_KOPERASI"})
+	c.do("PUT", "/api/pledges/"+pledgeID, wargaTok, map[string]any{"status": "CONFIRMED"})
 
 	// verifikasi terima → transaksi + komisi
 	code, out = c.do("POST", "/api/pledges/"+pledgeID+"/verifikasi", buyerTok, map[string]any{"qty_received": 100})
@@ -128,10 +126,10 @@ func TestIntegrationDemandFlow(t *testing.T) {
 		t.Fatalf("transaksi tak konsisten: gross=%v fee=%v net=%v", gross, fee, net)
 	}
 
-	// demand detail → CLOSED
+	// demand detail → FULFILLED
 	code, out = c.do("GET", "/api/demands/"+demandID, "", nil)
-	if code != 200 || out["data"].(map[string]any)["demand_status"] != "CLOSED" {
-		t.Fatalf("demand harus CLOSED: %d %v", code, out)
+	if code != 200 || out["data"].(map[string]any)["demand_status"] != "FULFILLED" {
+		t.Fatalf("demand harus FULFILLED: %d %v", code, out)
 	}
 
 	// RBAC: warga buat demand → 403
