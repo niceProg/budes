@@ -1,0 +1,150 @@
+erDiagram
+    %% ============================================================
+    %% Koperasi Desa = HUB/Perantara. Dua alur:
+    %%   (A) DEMAND  : Buyer minta barang -> disebar ke warga -> warga penuhi -> setor ke koperasi
+    %%   (B) SUPPLY  : Warga punya komoditas -> koperasi posting listing -> buyer pesan
+    %% Transaksi OFFLINE -> tidak ada wallet/escrow, hanya dicatat + fee koperasi.
+    %% ============================================================
+
+    KOPERASI ||--o{ USERS           : "menaungi warga & admin"
+    KOPERASI ||--o{ DEMANDS         : "mengelola"
+    KOPERASI ||--o{ SUPPLY_LISTINGS : "memposting"
+
+    USERS ||--o{ DEMANDS         : "buyer membuat"
+    USERS ||--o{ DEMAND_PLEDGES  : "warga menyanggupi"
+    USERS ||--o{ SUPPLY_LISTINGS : "warga menitipkan"
+    USERS ||--o{ ORDERS          : "buyer memesan"
+
+    KOMODITAS ||--o{ DEMANDS         : "acuan"
+    KOMODITAS ||--o{ SUPPLY_LISTINGS : "acuan"
+
+    DEMANDS         ||--o{ DEMAND_PLEDGES : "dipenuhi oleh"
+    SUPPLY_LISTINGS ||--o{ ORDERS        : "dipesan via"
+
+    DEMAND_PLEDGES ||--o| DEMAND_TRANSACTIONS : "menghasilkan (alur A)"
+    ORDERS         ||--o| SUPPLY_TRANSACTIONS : "menghasilkan (alur B)"
+
+    KOPERASI {
+        uuid id PK
+        string nama
+        string desa
+        string wilayah
+        string kontak
+        tinyint status "1=aktif, 9=hapus"
+        datetime created_at
+    }
+
+    USERS {
+        uuid id PK
+        uuid koperasi_id FK "null jika buyer eksternal"
+        string name
+        string phone
+        string email
+        string password_hash
+        enum role "BUYER, WARGA, ADMIN_KOPERASI"
+        tinyint status "1=aktif, 9=hapus"
+        datetime created_at
+    }
+
+    KOMODITAS {
+        uuid id PK
+        string nama
+        string kategori
+        string satuan "kg, ikat, karung, dll"
+    }
+
+    %% ---------- ALUR A: DEMAND ----------
+    DEMANDS {
+        uuid id PK
+        uuid buyer_id FK
+        uuid koperasi_id FK
+        uuid komoditas_id FK
+        string item_name
+        string satuan
+        int total_qty
+        int fulfilled_qty
+        decimal target_price_per_item
+        datetime deadline
+        enum demand_status "OPEN, PARTIAL, CLOSED, EXPIRED"
+        string user_input
+        datetime tanggal_input
+        string user_update
+        datetime tanggal_update
+    }
+
+    DEMAND_PLEDGES {
+        uuid id PK
+        uuid demand_id FK
+        uuid warga_id FK "producer"
+        int qty_pledged
+        int qty_delivered "qty yg sudah disetor ke koperasi"
+        decimal price_per_item "harga sepakat warga"
+        enum pledge_status "PENDING, ACCEPTED, DELIVERED_TO_KOPERASI, HANDED_TO_BUYER, CANCELLED"
+        string user_input
+        datetime tanggal_input
+        string user_update
+        datetime tanggal_update
+    }
+
+    %% ---------- ALUR B: SUPPLY ----------
+    SUPPLY_LISTINGS {
+        uuid id PK
+        uuid koperasi_id FK
+        uuid warga_id FK "pemilik komoditas"
+        uuid komoditas_id FK
+        string item_name
+        string satuan
+        int qty_available
+        int qty_sold
+        decimal price_per_item
+        enum listing_status "DRAFT, POSTED, SOLD_OUT, CLOSED"
+        string user_input
+        datetime tanggal_input
+        string user_update
+        datetime tanggal_update
+    }
+
+    ORDERS {
+        uuid id PK
+        uuid listing_id FK
+        uuid buyer_id FK
+        int qty_ordered
+        decimal price_per_item "snapshot harga saat pesan"
+        decimal total_amount
+        enum order_status "PENDING, CONFIRMED, HANDED_OVER, CANCELLED"
+        string user_input
+        datetime tanggal_input
+        string user_update
+        datetime tanggal_update
+    }
+
+    %% ---------- CATATAN TRANSAKSI OFFLINE (terpisah per alur) ----------
+    DEMAND_TRANSACTIONS {
+        uuid id PK
+        uuid demand_pledge_id FK
+        decimal gross_amount "dibayar buyer"
+        decimal koperasi_fee
+        decimal net_amount "diterima warga"
+        enum payment_method "CASH, TRANSFER"
+        enum payment_status "UNPAID, PAID, SETTLED"
+        datetime paid_at
+        string user_input
+        datetime tanggal_input
+        string user_update
+        datetime tanggal_update
+    }
+
+    SUPPLY_TRANSACTIONS {
+        uuid id PK
+        uuid order_id FK
+        decimal gross_amount "dibayar buyer"
+        decimal koperasi_fee
+        decimal net_amount "diterima warga"
+        enum payment_method "CASH, TRANSFER"
+        enum payment_status "UNPAID, PAID, SETTLED"
+        datetime paid_at
+        string user_input
+        datetime tanggal_input
+        string user_update
+        datetime tanggal_update
+    }
