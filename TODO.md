@@ -6,9 +6,11 @@
 
 ## Stack (per PRD §5 & §7)
 - **Frontend:** Nuxt.js (Vue 3) + Tailwind CSS / Nuxt UI · Pinia (state) · SSR untuk halaman publik (SEO, try-before-register)
-- **Backend:** Go (Golang) — REST API (router: chi/gin/echo) · JWT auth · WebSocket untuk real-time
-- **Database:** PostgreSQL (ACID — wajib untuk escrow/dompet)
-- **Deployment:** Docker + Docker Compose (Nuxt + Go + Postgres)
+- **Backend:** Go (Golang) — REST API (router: chi/gin/echo) · JWT auth · WebSocket untuk real-time · **2 connection pool** (App DB read-write + Reference DB read-only)
+- **Database:** PostgreSQL — **dua instance** (arsitektur dua-DB, PRD §5):
+  - **App DB** (writable) — transaksional: users, demands, fulfillments, transactions, disputes, wallets (ACID — wajib untuk escrow/dompet)
+  - **Reference DB** (read-only) — cermin lokal dataset KDMP (27 tabel; sumber sisi-suplai & matching). Sudah di-clone ke `budes_ref_db` (Docker, `localhost:5433`), lihat `deploy/`
+- **Deployment:** Docker + Docker Compose (Nuxt + Go + App DB + Reference DB)
 
 ## Legenda
 - `[ ]` belum · `[~]` proses · `[x]` selesai
@@ -19,28 +21,38 @@
 1. **Try-before-register:** halaman publik (Jelajah Pasar, detail permintaan) bisa dilihat tanpa login. Login/daftar diminta *just-in-time* saat aksi konkret (Sanggupi / Pasang Kebutuhan). → **Aktivasi kunjungan pertama = lihat permintaan nyata + tombol Sanggupi.**
 2. **Mock-first:** tiap modul dibangun UI dengan data tiruan dulu → lalu migrasi DB → lalu endpoint API → lalu sambungkan.
 3. **Frontend & backend terpisah:** komunikasi via JSON REST + JWT; status real-time via WebSocket.
+4. **Grounded pada data nyata:** sisi-suplai (produsen, kapasitas produksi desa, stok gerai, koperasi penjamin) dibaca dari **Reference DB KDMP (read-only)**, bukan dikarang. Seed & matching memakai data nyata; keterkaitan disimpan sebagai *soft ref* (`koperasi_ref`, `anggota_ref`, `komoditas_ref`, `kode_wilayah`) — bukan FK lintas-DB.
 
 ---
 
 ## Fase 0 — Fondasi Proyek & DevOps 🔴
 - [ ] Struktur monorepo: `/frontend` (Nuxt), `/backend` (Go), `/deploy` (docker) + Git + `.gitignore`
-- [ ] `docker-compose.yml`: service `web` (Nuxt), `api` (Go), `db` (PostgreSQL) + volume & network
-- [ ] Env config bersama (`.env`): `DATABASE_URL`, `JWT_SECRET`, `API_BASE_URL`, dll
-- [ ] Backend Go: skeleton (router, config loader, koneksi Postgres, health check `GET /health`)
-- [ ] Backend Go: tooling migrasi (golang-migrate / goose) + layer repository-service-handler
+- [x] **Reference DB KDMP di-clone ke lokal** (Docker `budes_ref_db`, `localhost:5433`, 27 tabel / 547.869 baris, read-only) — `deploy/docker-compose.yml` + `deploy/dumps/`
+- [ ] `docker-compose.yml`: service `web` (Nuxt), `api` (Go), `app-db` (App DB writable), `ref-db` (Reference DB read-only) + volume & network
+- [ ] Env config bersama (`.env`): **`APP_DATABASE_URL`** (writable) + **`REF_DATABASE_URL`** (read-only), `JWT_SECRET`, `API_BASE_URL`, dll
+- [x] Backend Go: skeleton (router `net/http`, config loader env, **2 koneksi Postgres: appDB rw + refDB ro** via pgxpool, health check `GET /health` cek keduanya) — `backend/`
+- [x] Backend Go: pool refDB dibatasi read-only (`SET default_transaction_read_only=on` di AfterConnect) — cegah tulis tak sengaja
+- [ ] Backend Go: tooling migrasi (golang-migrate / goose) **hanya untuk App DB** (Reference DB tidak dimigrasi — di-seed dari dump) + layer repository-service-handler
 - [ ] Frontend Nuxt: skeleton (Tailwind/Nuxt UI, Pinia, layout dasar, wrapper `$fetch` + interceptor JWT)
 - [ ] Konvensi API: format response JSON, error, penamaan `snake_case`, UUID sebagai PK
 - [ ] CORS + middleware dasar (logging, recover) di backend
 
 ## Fase 1 — Skema Database & Migrasi 🔴
-> Basis PRD §6 (users, demands, fulfillments, transactions) + tabel yang dibutuhkan features. Lihat bagian **Skema Database** di bawah.
-- [ ] Migrasi `users` (role: BUYER/PRODUCER/KOPERASI, password_hash)
+> Migrasi **hanya untuk App DB** (writable). Reference DB KDMP tidak dimigrasi — sudah di-clone (Fase 0). Basis PRD §6 + soft-ref ke KDMP (§6b). Lihat bagian **Skema Database** di bawah.
+
+**App DB (writable) — migrasi**
+- [ ] Migrasi `users` (role: BUYER/PRODUCER/KOPERASI, password_hash, **+ `koperasi_ref`/`anggota_ref` nullable soft-ref**)
 - [ ] Migrasi `wallets` (saldo per user) — atau kolom `wallet_balance` di users (versi ringkas PRD)
-- [ ] Migrasi `demands` (kebutuhan)
-- [ ] Migrasi `fulfillments` (sanggupan; termasuk `qty_received` untuk terima sebagian)
-- [ ] Migrasi `transactions`/`escrow` (dana ditahan, komisi, status)
+- [ ] Migrasi `demands` (kebutuhan; **+ `deadline`, `kode_wilayah`, `komoditas_ref` soft-ref**)
+- [ ] Migrasi `fulfillments` (sanggupan; `qty_received` untuk terima sebagian; **+ `koperasi_ref`, `produk_sample_id` soft-ref**)
+- [ ] Migrasi `transactions`/`escrow` (dana ditahan, komisi, `net_amount`, status)
 - [ ] Migrasi `disputes` (sengketa dari Lapor Masalah)
-- [ ] Seed data tiruan (users tiap peran, beberapa demands & fulfillments)
+
+**Reference DB (read-only) — layer baca & seed**
+- [x] Reference read-layer (repository read-only) — `backend/internal/reference/`; query koperasi, anggota, inventaris/produk × wilayah (join tervalidasi). Komoditas & tabel lain menyusul sesuai kebutuhan.
+- [ ] Validasi soft-ref: cek `koperasi_ref`/`anggota_ref`/`komoditas_ref`/`kode_wilayah` benar-benar ada di Reference DB sebelum tulis ke App DB (+ cache resolve)
+- [ ] **Seed diturunkan dari data nyata** (bukan tiruan): produsen contoh ditaut ke `anggota_ref`/`koperasi_ref` riil; demands contoh memakai komoditas/produk & wilayah nyata; user `KOPERASI` dipetakan ke `koperasi_ref` riil
+- [ ] Script re-sync Reference DB: `pg_dump` remote → `pg_restore` ke `budes_ref_db` (dump ada di `deploy/dumps/`)
 
 ---
 
@@ -50,13 +62,15 @@
 **Frontend**
 - [ ] Layout & routing modul akun + state auth (Pinia, mock)
 - [ ] Halaman Daftar (nama, email, password, pilih peran) + validasi
+- [ ] Saat peran PRODUCER/KOPERASI: opsi **tautkan identitas KDMP riil** — cari & pilih koperasi (`koperasi_ref`) / anggota (`anggota_ref`) dari Reference DB 🟡
 - [ ] Halaman Login + error "Email atau kata sandi tidak sesuai"
 - [ ] Tombol Logout (hapus sesi) di setiap halaman
 - [ ] Tampilkan nama & peran di header setelah login
 - [ ] Halaman **Riwayatku** (aktivitas + keuangan: ditahan/dicairkan/komisi)
 
 **Backend (Go)**
-- [ ] `POST /api/auth/register` (hash password bcrypt) 🔴
+- [ ] `POST /api/auth/register` (hash password bcrypt; **validasi `koperasi_ref`/`anggota_ref` ke Reference DB bila diisi**) 🔴
+- [x] `GET /api/ref/koperasi?q=` & `GET /api/ref/anggota?q=` (lookup read-only ke Reference DB untuk penautan identitas) 🟡
 - [ ] `POST /api/auth/login` → terbitkan JWT 🔴
 - [ ] Middleware autentikasi JWT (lindungi endpoint) 🔴
 - [ ] `POST /api/auth/logout` (invalidate sesi/token) 🟡
@@ -121,10 +135,23 @@
 ## Modul F — Sistem Notifikasi & Real-time `[medium]`
 - [ ] Setup **WebSocket** di backend Go (hub/broadcast per user & channel)
 - [ ] Frontend: koneksi WS + update status sanggupan/kiriman/dana secara langsung
-- [ ] **Broadcast Kebutuhan**: notifikasi ke produsen saat ada kebutuhan baru
+- [ ] **Broadcast Kebutuhan**: notifikasi ke produsen saat ada kebutuhan baru — **tertarget via Matching grounded (Modul G)**, bukan broadcast buta
 - [ ] **Update Status Pesanan**: notif saat disanggupi / dikirim / dana cair
 - [ ] **Peringatan Tenggat**: pengingat 24 jam sebelum batas kirim 🟡
 - [ ] Notifikasi in-app (bell) + fallback polling bila WS gagal
+
+## Modul G — Matching & Broadcast Grounded (data KDMP) `[high]` 🟡
+> Diferensiator utama: mencocokkan kebutuhan pembeli ke **kapasitas produksi & stok nyata** dari Reference DB. Menghidupkan "Broadcast Kebutuhan" (PRD §3) jadi cerdas & berbasis data.
+
+**Backend (Go) — read-only atas Reference DB**
+- [~] `GET /api/match/kandidat?item=&provinsi=` **selesai** (kandidat dari stok gerai nyata, join inventaris→koperasi→wilayah). TODO: bungkus jadi `GET /api/kebutuhan/:id/kandidat` (baca demand dari App DB → derive item/wilayah) + tambah sinyal komoditas desa
+- [~] Skoring kandidat: v1 = besar stok. TODO: kecocokan komoditas/produk × ketersediaan stok/volume × kedekatan wilayah + normalisasi nama (data variatif)
+- [ ] Broadcast tertarget: saat demand dibuat, tentukan set produsen/koperasi relevan (bukan semua) untuk notifikasi
+- [ ] (opsional) Trust-score koperasi penjamin dari sinyal Reference DB (status registrasi, RAT, dll) 🟢
+
+**Frontend**
+- [ ] Di Detail Permintaan: seksi "Desa/koperasi yang berpotensi memenuhi" (dari kandidat) — memperkuat kesan pasokan terjamin
+- [ ] Empty state matching: bila tak ada kandidat cocok → CTA "Kabari saya kalau ada"
 
 ---
 
@@ -151,17 +178,19 @@
 
 ---
 
-## Skema Database (selaras PRD §6 + kebutuhan features)
-> PRD §6 menyebut 4 tabel inti. Features 03 & 04 menambah kebutuhan (kiriman, wallets, escrow terpisah, sengketa). Rekomendasi: pertahankan tabel eksplisit di bawah (lebih auditable). Semua PK `UUID`.
+## Skema Database (selaras PRD §6 + §6b + kebutuhan features)
+> **App DB (writable)** — tabel di bawah. Semua PK `UUID`. Kolom `*_ref`/`*_sample_id` = **soft reference** ke Reference DB KDMP (bukan FK lintas-DB; divalidasi & di-resolve di aplikasi).
 
-| Tabel | Kolom inti | Catatan |
-|---|---|---|
-| `users` | id, name, email, password_hash, role(BUYER/PRODUCER/KOPERASI) | PRD §6 |
-| `wallets` | id, user_id, balance | features 04; alt: `wallet_balance` di `users` (versi ringkas PRD) |
-| `demands` | id, buyer_id, item_name, total_qty, fulfilled_qty, price_per_item, deadline, status(OPEN/PARTIAL/CLOSED) | PRD §6 |
-| `fulfillments` | id, demand_id, producer_id, qty_pledged, qty_received, status(PENDING/SHIPPED/RECEIVED/DISPUTED) | PRD §6 + `qty_received` untuk terima sebagian |
-| `transactions` | id, fulfillment_id, amount, koperasi_fee, net_amount, status(ON_HOLD/RELEASED/REFUNDED) | PRD §6 = escrow ledger |
-| `disputes` | id, fulfillment_id, reported_by, reason, status, resolution | dari Lapor Masalah (features 03) |
+| Tabel | Kolom inti | Soft-ref ke KDMP | Catatan |
+|---|---|---|---|
+| `users` | id, name, email, password_hash, role(BUYER/PRODUCER/KOPERASI), wallet_balance | `koperasi_ref`, `anggota_ref` | PRD §6 |
+| `wallets` | id, user_id, balance | — | features 04; alt: `wallet_balance` di `users` |
+| `demands` | id, buyer_id, item_name, total_qty, fulfilled_qty, price_per_item, deadline, status(OPEN/PARTIAL/CLOSED) | `kode_wilayah`, `komoditas_ref` | PRD §6 |
+| `fulfillments` | id, demand_id, producer_id, qty_pledged, qty_received, status(PENDING/SHIPPED/RECEIVED/DISPUTED) | `koperasi_ref`, `produk_sample_id` | + `qty_received` untuk terima sebagian |
+| `transactions` | id, fulfillment_id, amount, koperasi_fee, net_amount, status(ON_HOLD/RELEASED/REFUNDED) | — | PRD §6 = escrow ledger |
+| `disputes` | id, fulfillment_id, reported_by, reason, status, resolution | — | dari Lapor Masalah (features 03) |
+
+**Reference DB (read-only, dataset KDMP)** — 27 tabel, tidak dimigrasi (di-clone). Tabel kunci yang dipakai: `referensi_koperasi_wilayah`, `profil_koperasi`, `akun_bank_koperasi`, `anggota_koperasi`, `referensi_komoditas_desa`, `produk_koperasi`, `inventaris_produk`, `gerai_koperasi`, `referensi_wilayah`. Detail pemetaan → PRD §6b.
 
 **Status "kiriman"** (features 03): tidak butuh tabel terpisah — cukup query `fulfillments` dengan `status = SHIPPED`. Buat tabel `shipments` hanya bila perlu data logistik (resi, waktu kirim) 🟢.
 

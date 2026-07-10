@@ -4,3 +4,11 @@ mcp-server
 *.mermaid
 .md
 .claude
+
+# secrets & build artifacts
+.env
+CLAUDE.md
+
+# dump/artefak dataset KDMP — regenerate via deploy/sync-ref-db.sh
+deploy/dumps/
+backend/bin/

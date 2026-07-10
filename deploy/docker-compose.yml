@@ -1,0 +1,42 @@
+services:
+  # Cermin lokal (read/analytics) dari dataset KDMP hackathon — SUMBER SISI-SUPLAI Budes.
+  ref-db:
+    image: postgres:18.4
+    container_name: budes_ref_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: budes
+      POSTGRES_PASSWORD: budes
+      POSTGRES_DB: hackathon_2026
+    ports:
+      - "5433:5432"   # host 5433 → hindari bentrok Postgres lokal lain
+    volumes:
+      - ref_db_data:/var/lib/postgresql   # PG18: mount di root, bukan /data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budes -d hackathon_2026"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # DB aplikasi Budes (writable) — layer transaksional: users, demands, fulfillments, transactions, disputes.
+  app-db:
+    image: postgres:18.4
+    container_name: budes_app_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: budes
+      POSTGRES_PASSWORD: budes
+      POSTGRES_DB: budes_app
+    ports:
+      - "5434:5432"   # host 5434 → App DB (5433 = Reference DB)
+    volumes:
+      - app_db_data:/var/lib/postgresql   # PG18: mount di root, bukan /data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budes -d budes_app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ref_db_data:
+  app_db_data:
