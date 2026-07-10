@@ -36,6 +36,12 @@ jobs:
         working-directory: deploy/prod
         run: docker compose --env-file "$ENV_FILE" up -d --remove-orphans
 
+      # Caddy bind-mount 1 file; actions/checkout mengganti inode Caddyfile tiap run,
+      # sedangkan container tetap terpaku inode lama. Recreate agar config terbaru terpakai.
+      - name: Recreate Caddy (ambil Caddyfile terbaru)
+        working-directory: deploy/prod
+        run: docker compose --env-file "$ENV_FILE" up -d --force-recreate --no-deps caddy
+
       - name: Bersihkan image lama
         run: docker image prune -f
 
