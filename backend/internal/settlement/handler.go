@@ -2,18 +2,31 @@ package settlement
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"budes/internal/auth"
 	"budes/internal/httpx"
+	"budes/internal/notify"
 )
 
 // Handler mengekspos endpoint serah-terima, transaksi, sengketa.
-type Handler struct{ repo *Repository }
+type Handler struct {
+	repo     *Repository
+	notifier *notify.Notifier
+}
 
 // NewHandler membuat handler settlement.
-func NewHandler(repo *Repository) *Handler { return &Handler{repo: repo} }
+func NewHandler(repo *Repository, notifier *notify.Notifier) *Handler {
+	return &Handler{repo: repo, notifier: notifier}
+}
+
+func (h *Handler) broadcastCair(t *Txn) {
+	h.notifier.Broadcast(fmt.Sprintf(
+		"✅ *Transaksi Selesai (%s)*\nBarang: %s\nDana cair ke warga: Rp%.0f\nKomisi koperasi: Rp%.0f",
+		t.Kind, t.ItemName, t.NetAmount, t.KoperasiFee))
+}
 
 // VerifyPledge: POST /api/pledges/{id}/verifikasi (BUYER)
 func (h *Handler) VerifyPledge(w http.ResponseWriter, r *http.Request) {
@@ -26,6 +39,7 @@ func (h *Handler) VerifyPledge(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
+	h.broadcastCair(t)
 	httpx.JSON(w, http.StatusCreated, map[string]any{"data": t})
 }
 
@@ -36,6 +50,7 @@ func (h *Handler) VerifyOrder(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
+	h.broadcastCair(t)
 	httpx.JSON(w, http.StatusCreated, map[string]any{"data": t})
 }
 
@@ -101,6 +116,41 @@ func (h *Handler) UpdatePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.OK(w, "status pembayaran diperbarui")
+}
+
+// ListDisputes: GET /api/disputes?status=OPEN (ADMIN_KOPERASI)
+func (h *Handler) ListDisputes(w http.ResponseWriter, r *http.Request) {
+	res, err := h.repo.ListDisputes(r.Context(), r.URL.Query().Get("status"))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	httpx.OK(w, res)
+}
+
+// ResolveDispute: PUT /api/disputes/{id} (ADMIN_KOPERASI)
+func (h *Handler) ResolveDispute(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Status     string  `json:"status"`
+		Resolution *string `json:"resolution"`
+	}
+	if !httpx.Decode(w, r, &in) {
+		return
+	}
+	if in.Status != "REVIEW" && in.Status != "RESOLVED" {
+		httpx.Error(w, http.StatusBadRequest, "status harus REVIEW atau RESOLVED")
+		return
+	}
+	n, err := h.repo.ResolveDispute(r.Context(), r.PathValue("id"), auth.UserID(r.Context()), in.Status, in.Resolution)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if n == 0 {
+		httpx.Error(w, http.StatusNotFound, "sengketa tidak ditemukan")
+		return
+	}
+	httpx.OK(w, "sengketa "+in.Status)
 }
 
 // Pembukuan: GET /api/pembukuan (ADMIN_KOPERASI)

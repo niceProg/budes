@@ -74,28 +74,31 @@ func (r *Repository) List(ctx context.Context, status string) ([]Verification, e
 }
 
 // Review memutuskan VERIFIED/REJECTED & menyinkronkan users.verification_status.
-func (r *Repository) Review(ctx context.Context, id, reviewerID, decision string, note *string) error {
+// Mengembalikan nomor telepon pengaju (untuk notifikasi), bila ada.
+func (r *Repository) Review(ctx context.Context, id, reviewerID, decision string, note *string) (*string, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback(ctx)
 
 	var userID string
-	err = tx.QueryRow(ctx, `SELECT user_id::text FROM verifications WHERE id=$1 FOR UPDATE`, id).Scan(&userID)
+	var phone *string
+	err = tx.QueryRow(ctx, `SELECT v.user_id::text, u.phone
+		FROM verifications v JOIN users u ON u.id = v.user_id WHERE v.id=$1 FOR UPDATE OF v`, id).Scan(&userID, &phone)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrNotFound
+		return nil, ErrNotFound
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE verifications SET status=$2, reviewed_by=$3, review_note=$4, reviewed_at=now(), user_update=$5 WHERE id=$1`,
 		id, decision, reviewerID, note, reviewerID); err != nil {
-		return err
+		return nil, err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE users SET verification_status=$2,
 		verified_at = CASE WHEN $2='VERIFIED' THEN now() ELSE verified_at END WHERE id=$1`, userID, decision); err != nil {
-		return err
+		return nil, err
 	}
-	return tx.Commit(ctx)
+	return phone, tx.Commit(ctx)
 }

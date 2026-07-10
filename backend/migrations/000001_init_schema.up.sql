@@ -194,13 +194,13 @@ CREATE INDEX IF NOT EXISTS idx_disputes_pledge    ON disputes (demand_pledge_id)
 CREATE INDEX IF NOT EXISTS idx_disputes_order     ON disputes (order_id);
 
 -- tanggal_update triggers ----------------------------------------------
-CREATE TRIGGER trg_verifications_upd BEFORE UPDATE ON verifications      FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
-CREATE TRIGGER trg_demands_upd      BEFORE UPDATE ON demands             FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
-CREATE TRIGGER trg_pledges_upd      BEFORE UPDATE ON demand_pledges      FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
-CREATE TRIGGER trg_listings_upd     BEFORE UPDATE ON supply_listings     FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
-CREATE TRIGGER trg_orders_upd       BEFORE UPDATE ON orders              FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
-CREATE TRIGGER trg_dtx_upd          BEFORE UPDATE ON demand_transactions FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
-CREATE TRIGGER trg_stx_upd          BEFORE UPDATE ON supply_transactions FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
-CREATE TRIGGER trg_disputes_upd     BEFORE UPDATE ON disputes            FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
+CREATE OR REPLACE TRIGGER trg_verifications_upd BEFORE UPDATE ON verifications      FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
+CREATE OR REPLACE TRIGGER trg_demands_upd      BEFORE UPDATE ON demands             FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
+CREATE OR REPLACE TRIGGER trg_pledges_upd      BEFORE UPDATE ON demand_pledges      FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
+CREATE OR REPLACE TRIGGER trg_listings_upd     BEFORE UPDATE ON supply_listings     FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
+CREATE OR REPLACE TRIGGER trg_orders_upd       BEFORE UPDATE ON orders              FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
+CREATE OR REPLACE TRIGGER trg_dtx_upd          BEFORE UPDATE ON demand_transactions FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
+CREATE OR REPLACE TRIGGER trg_stx_upd          BEFORE UPDATE ON supply_transactions FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
+CREATE OR REPLACE TRIGGER trg_disputes_upd     BEFORE UPDATE ON disputes            FOR EACH ROW EXECUTE FUNCTION set_tanggal_update();
 
 COMMIT;

@@ -12,3 +12,4 @@ MEMORY.md
 # dump/artefak dataset KDMP — regenerate via deploy/sync-ref-db.sh
 deploy/dumps/
 backend/bin/
+frontend/node_modules

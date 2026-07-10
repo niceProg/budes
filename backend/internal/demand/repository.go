@@ -10,12 +10,12 @@ import (
 
 // Kesalahan domain.
 var (
-	ErrNotFound      = errors.New("demand tidak ditemukan")
-	ErrDemandNotOpen = errors.New("demand tidak menerima sanggupan (harus OPEN/PARTIAL)")
-	ErrOverPledge    = errors.New("jumlah melebihi sisa kebutuhan")
+	ErrNotFound       = errors.New("demand tidak ditemukan")
+	ErrDemandNotOpen  = errors.New("demand tidak menerima sanggupan (harus OPEN/PARTIAL)")
+	ErrOverPledge     = errors.New("jumlah melebihi sisa kebutuhan")
 	ErrPledgeNotFound = errors.New("sanggupan tidak ditemukan")
-	ErrForbidden     = errors.New("tidak berhak atas aksi ini")
-	ErrBadTransition = errors.New("transisi status tidak valid")
+	ErrForbidden      = errors.New("tidak berhak atas aksi ini")
+	ErrBadTransition  = errors.New("transisi status tidak valid")
 )
 
 const demandCols = `id::text, buyer_id::text, koperasi_id::text, komoditas_id::text, item_name, satuan,
@@ -65,10 +65,29 @@ func (r *Repository) MarkDPPaid(ctx context.Context, id, buyerID, method string)
 	return ct.RowsAffected(), nil
 }
 
-// List mengembalikan demand dengan status tertentu (untuk etalase publik).
-func (r *Repository) List(ctx context.Context, statuses []string) ([]Demand, error) {
+// List mengembalikan demand dengan status tertentu (untuk etalase publik), berpaginasi.
+func (r *Repository) List(ctx context.Context, statuses []string, limit, offset int) ([]Demand, error) {
 	rows, err := r.pool.Query(ctx, `SELECT `+demandCols+` FROM demands
-		WHERE demand_status = ANY($1) ORDER BY tanggal_input DESC LIMIT 100`, statuses)
+		WHERE demand_status = ANY($1) ORDER BY tanggal_input DESC LIMIT $2 OFFSET $3`, statuses, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Demand{}
+	for rows.Next() {
+		d, err := scanDemand(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *d)
+	}
+	return out, rows.Err()
+}
+
+// ByBuyer mengembalikan semua demand milik pembeli (semua status).
+func (r *Repository) ByBuyer(ctx context.Context, buyerID string) ([]Demand, error) {
+	rows, err := r.pool.Query(ctx, `SELECT `+demandCols+` FROM demands
+		WHERE buyer_id=$1 ORDER BY tanggal_input DESC`, buyerID)
 	if err != nil {
 		return nil, err
 	}
@@ -285,6 +304,18 @@ func (r *Repository) Cancel(ctx context.Context, id, buyerID string) error {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// ExpireDemand (ADMIN_KOPERASI): akhiri demand yang gagal → EXPIRED + DP REFUNDED (bila sudah PAID).
+func (r *Repository) ExpireDemand(ctx context.Context, id string) (int64, error) {
+	ct, err := r.pool.Exec(ctx, `UPDATE demands
+		SET demand_status='EXPIRED',
+		    dp_status = CASE WHEN dp_status='PAID' THEN 'REFUNDED' ELSE dp_status END
+		WHERE id=$1 AND demand_status IN ('DRAFT','OPEN','PARTIAL')`, id)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
 }
 
 func allowed(list []string, v string) bool {
