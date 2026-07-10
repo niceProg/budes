@@ -14,6 +14,7 @@ erDiagram
     USERS ||--o{ DEMAND_PLEDGES  : "warga menyanggupi"
     USERS ||--o{ SUPPLY_LISTINGS : "warga menitipkan"
     USERS ||--o{ ORDERS          : "buyer memesan"
+    USERS ||--o{ DISPUTES        : "melapor"
 
     KOMODITAS ||--o{ DEMANDS         : "acuan"
     KOMODITAS ||--o{ SUPPLY_LISTINGS : "acuan"
@@ -23,6 +24,9 @@ erDiagram
 
     DEMAND_PLEDGES ||--o| DEMAND_TRANSACTIONS : "menghasilkan (alur A)"
     ORDERS         ||--o| SUPPLY_TRANSACTIONS : "menghasilkan (alur B)"
+
+    DEMAND_PLEDGES ||--o| DISPUTES : "dapat disengketakan (alur A)"
+    ORDERS         ||--o| DISPUTES : "dapat disengketakan (alur B)"
 
     KOPERASI {
         uuid id PK
@@ -143,6 +147,23 @@ erDiagram
         enum payment_method "CASH, TRANSFER"
         enum payment_status "UNPAID, PAID, SETTLED"
         datetime paid_at
+        string user_input
+        datetime tanggal_input
+        string user_update
+        datetime tanggal_update
+    }
+
+    %% ---------- SENGKETA / KOMPLAIN (lintas alur) ----------
+    DISPUTES {
+        uuid id PK
+        uuid demand_pledge_id FK "isi jika alur A (null jika B)"
+        uuid order_id FK "isi jika alur B (null jika A)"
+        enum source_type "DEMAND, SUPPLY"
+        uuid reported_by FK "USERS: buyer/warga pelapor"
+        string reason
+        enum dispute_status "OPEN, REVIEW, RESOLVED"
+        string resolution "keputusan koperasi"
+        datetime resolved_at
         string user_input
         datetime tanggal_input
         string user_update
