@@ -96,18 +96,46 @@ const pilar = [
 
           <!-- visual -->
           <div class="flex animate-fadeUp justify-center lg:justify-end">
-            <div class="relative w-full max-w-[460px]">
-              <div class="overflow-hidden rounded-3xl border border-white/20 bg-white/[0.12] shadow-[0_20px_60px_rgba(0,0,0,0.2)] backdrop-blur">
-                <div class="flex aspect-[4/3] flex-col items-center justify-center gap-2 bg-white/[0.08] text-white/70">
-                  <span class="text-6xl">🌾</span>
-                  <span class="px-6 text-center text-sm">Pasokan desa yang terjamin,<br />dirakit gotong royong koperasi</span>
+            <div class="relative w-full max-w-[440px]">
+              <!-- kartu utama -->
+              <div class="relative overflow-hidden rounded-3xl border border-white/25 bg-white/[0.12] p-8 shadow-[0_20px_60px_rgba(0,0,0,0.25)] backdrop-blur">
+                <div class="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/25 blur-3xl"></div>
+                <div class="pointer-events-none absolute -bottom-14 -left-10 h-44 w-44 rounded-full bg-amber-300/30 blur-3xl"></div>
+
+                <!-- ring progres gotong royong -->
+                <div class="relative mx-auto flex h-40 w-40 items-center justify-center">
+                  <svg viewBox="0 0 120 120" class="h-full w-full -rotate-90">
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="9" />
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-dasharray="327" class="ring" />
+                  </svg>
+                  <div class="absolute flex flex-col items-center">
+                    <span class="bob text-5xl">🌾</span>
+                    <span class="mt-0.5 font-heading text-base font-extrabold text-white">68%</span>
+                    <span class="text-[10px] font-semibold uppercase tracking-wide text-white/70">tersanggupi</span>
+                  </div>
+                </div>
+
+                <p class="mt-5 text-center text-[13.5px] leading-relaxed text-white/85">
+                  Pasokan desa yang terjamin,<br />dirakit gotong royong koperasi
+                </p>
+
+                <!-- chip warga menyanggupi (mengambang) -->
+                <div class="chip-a absolute right-4 top-7 flex items-center gap-1.5 rounded-full bg-white/95 py-1 pl-1.5 pr-2.5 shadow-lg">
+                  <span class="text-[13px]">🧑‍🌾</span><span class="text-[11px] font-extrabold text-gray-700">+120 kg</span>
+                </div>
+                <div class="chip-b absolute left-3 top-24 flex items-center gap-1.5 rounded-full bg-white/95 py-1 pl-1.5 pr-2.5 shadow-lg">
+                  <span class="text-[13px]">🧑‍🌾</span><span class="text-[11px] font-extrabold text-gray-700">+80 kg</span>
                 </div>
               </div>
-              <div class="absolute -bottom-3.5 left-5 flex max-w-[240px] items-center gap-2.5 rounded-2xl bg-white p-2.5 pr-4 shadow-[0_8px_24px_rgba(0,0,0,0.15)]">
+
+              <!-- badge Pasar Aktif -->
+              <div class="badge-float absolute -bottom-3.5 left-5 flex max-w-[240px] items-center gap-2.5 rounded-2xl bg-white p-2.5 pr-4 shadow-[0_8px_24px_rgba(0,0,0,0.15)]">
                 <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-pink-gradient text-white">🏆</div>
                 <div>
                   <strong class="block font-heading text-[0.82rem] leading-tight text-gray-800">Pasar Aktif!</strong>
-                  <span class="text-[0.7rem] text-gray-600">Koperasi Desa Merah Putih</span>
+                  <span class="flex items-center gap-1 text-[0.7rem] text-gray-600">
+                    <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span>Koperasi Desa Merah Putih
+                  </span>
                 </div>
               </div>
             </div>
@@ -237,3 +265,20 @@ const pilar = [
     </div>
   </div>
 </template>
+
+<style scoped>
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes floatChip { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes drawRing { from { stroke-dashoffset: 327; } to { stroke-dashoffset: 105; } }
+
+.bob { animation: bob 3s ease-in-out infinite; }
+.ring { stroke-dashoffset: 327; animation: drawRing 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s forwards; }
+.chip-a { animation: floatChip 3.6s ease-in-out infinite; }
+.chip-b { animation: floatChip 3.6s ease-in-out 0.9s infinite; }
+.badge-float { animation: bob 4.5s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bob, .chip-a, .chip-b, .badge-float { animation: none; }
+  .ring { stroke-dashoffset: 105; animation: none; }
+}
+</style>

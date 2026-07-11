@@ -823,6 +823,7 @@ export const useApp = defineStore('app', {
     async payDpMayar(demandId?: string) {
       const draftId = demandId || this.buatDraft
       if (!draftId) return
+      if (!this.requireVerified()) return
       const api = useApi()
       if (!api.enabled) return this.confirmDp()
       this.busy = true
@@ -831,11 +832,13 @@ export const useApp = defineStore('app', {
         if (res?.link) { window.location.href = res.link; return }
         this.showToast('Gagal membuat pembayaran.')
       } catch (e) {
-        this.showToast(errMsg(e))
+        const m = errMsg(e)
+        this.showToast(/mayar|gateway/i.test(m) ? 'Gagal memulai pembayaran online. Coba lagi nanti.' : m)
       } finally { this.busy = false }
     },
     // Bayar/pelunasan transaksi via Mayar (redirect). kind: 'demand' | 'supply'.
     async payTxnMayar(kind: 'demand' | 'supply', id: string) {
+      if (!this.requireVerified()) return
       const api = useApi()
       if (!api.enabled) { this.showToast('Pembayaran online butuh koneksi API.'); return }
       this.busy = true
@@ -844,7 +847,8 @@ export const useApp = defineStore('app', {
         if (res?.link) { window.location.href = res.link; return }
         this.showToast('Gagal membuat pembayaran.')
       } catch (e) {
-        this.showToast(errMsg(e))
+        const m = errMsg(e)
+        this.showToast(/mayar|gateway/i.test(m) ? 'Gagal memulai pembayaran online. Coba lagi nanti.' : m)
       } finally { this.busy = false }
     },
 
