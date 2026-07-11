@@ -285,7 +285,10 @@ export const useApp = defineStore('app', {
       try {
         const list = await api.data<any[]>('/api/ref/koperasi')
         const names = (list || []).map((k) => k.nama_koperasi).filter(Boolean)
-        if (names.length) this.koperasiList = Array.from(new Set(names))
+        if (names.length) {
+          this.koperasiList = Array.from(new Set(names))
+          if (!this.koperasiList.includes(this.reg.koperasi)) this.reg.koperasi = this.koperasiList[0]
+        }
       } catch { /* biarkan pakai default */ }
     },
     // Batas harga komoditas (admin) — dari API.
