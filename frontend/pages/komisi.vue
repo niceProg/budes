@@ -31,9 +31,9 @@ async function simpan() {
       Nilai ini disepakati koperasi bersama anggota — sisanya (net) menjadi hak warga penjual.
     </p>
 
-    <div class="flex flex-wrap gap-4">
+    <div class="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
       <!-- kartu pengaturan -->
-      <section class="card min-w-[300px] flex-[1.2] p-[22px]">
+      <section class="card min-w-0 p-[22px]">
         <h3 class="mb-4 text-[15.5px] font-extrabold">Persentase Komisi per Transaksi</h3>
 
         <div class="mb-4 flex items-end gap-3">
@@ -85,7 +85,7 @@ async function simpan() {
       </section>
 
       <!-- kartu simulasi -->
-      <section class="card min-w-[260px] flex-1 p-[22px]">
+      <section class="card min-w-0 p-[22px]">
         <h3 class="mb-1 text-[15.5px] font-extrabold">Simulasi Dampak</h3>
         <p class="mb-4 text-[12px] text-sand-600">Berdasarkan total nilai transaksi berjalan.</p>
 

@@ -24,8 +24,8 @@ const draftDp = computed(() => (draft.value ? fmtRp(draft.value.total * draft.va
     </div>
 
     <!-- STEP 1 -->
-    <div v-if="app.buatStep === 1" class="flex flex-wrap items-start gap-[18px]">
-      <div class="card min-w-[300px] flex-[1.6] p-6">
+    <div v-if="app.buatStep === 1" class="grid items-start gap-[18px] lg:grid-cols-[1.6fr_1fr]">
+      <div class="card min-w-0 p-6">
         <div class="mb-3">
           <label class="field-label">Nama komoditas</label>
           <input v-model="app.buat.item" type="text" placeholder="cth. Beras Medium IR64" class="field-input" />
@@ -54,7 +54,7 @@ const draftDp = computed(() => (draft.value ? fmtRp(draft.value.total * draft.va
         <button class="btn-primary px-6 py-3" @click="app.submitBuat()">Lanjut ke Uang Muka →</button>
       </div>
 
-      <div class="card min-w-[260px] flex-1 p-6">
+      <div class="card min-w-0 p-6">
         <h3 class="mb-3.5 text-[15px] font-extrabold">Perkiraan Biaya</h3>
         <div class="flex justify-between border-b border-dashed border-sand-400 py-2 text-[13.5px]"><span class="text-sand-700">Nilai total</span><span class="font-bold">{{ fmtRp(total) }}</span></div>
         <div class="flex justify-between border-b border-dashed border-sand-400 py-2 text-[13.5px]"><span class="text-sand-700">Uang muka (30%)</span><span class="font-extrabold text-clay-600">{{ fmtRp(total * 0.3) }}</span></div>

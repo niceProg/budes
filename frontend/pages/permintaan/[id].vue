@@ -25,9 +25,9 @@ const pledges = computed(() =>
   <div class="mx-auto max-w-page px-5 pb-16 pt-[22px]">
     <NuxtLink to="/" class="mb-4 inline-block text-[13.5px] font-bold text-clay-600 hover:underline">← Jelajah Pasar</NuxtLink>
 
-    <div class="flex flex-wrap items-start gap-[18px]">
+    <div class="grid items-start gap-[18px] lg:grid-cols-[1.7fr_1fr]">
       <!-- kolom kiri -->
-      <div class="flex min-w-[300px] flex-[1.7] flex-col gap-[18px]">
+      <div class="flex min-w-0 flex-col gap-[18px]">
         <div class="card p-[26px]">
           <div class="mb-1.5 flex flex-wrap items-center gap-2.5">
             <h1 class="text-[26px] font-extrabold leading-tight">{{ det.item_name }}</h1>
@@ -61,7 +61,7 @@ const pledges = computed(() =>
       </div>
 
       <!-- kolom kanan -->
-      <div class="flex min-w-[280px] flex-1 flex-col gap-[18px]">
+      <div class="flex min-w-0 flex-col gap-[18px]">
         <div class="card p-6">
           <h3 class="mb-3.5 text-[15px] font-extrabold">Rincian Pembayaran</h3>
           <div class="flex justify-between border-b border-dashed border-sand-400 py-2 text-[13.5px]">

@@ -59,7 +59,7 @@ const pilar = [
       <div class="pointer-events-none absolute -left-24 bottom-16 h-[360px] w-[360px] rounded-full bg-white/[0.04]" />
 
       <div class="page relative z-[2]">
-        <div class="grid items-center gap-10 py-16 lg:grid-cols-2">
+        <div class="grid items-center gap-8 py-10 lg:grid-cols-2 lg:gap-10 lg:py-16">
           <!-- teks -->
           <div class="animate-fadeUp">
             <div class="mb-5 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-4 py-1.5 font-heading text-[0.78rem] font-semibold tracking-wide text-white">
@@ -173,9 +173,9 @@ const pilar = [
       <NuxtLink
         v-if="sorot"
         :to="`/permintaan/${sorot.id}`"
-        class="mb-5 flex cursor-pointer flex-wrap items-center gap-6 rounded-2xl border border-gray-200 border-l-4 border-l-pink-600 bg-white p-7 shadow-soft transition hover:shadow-lift"
+        class="mb-5 flex cursor-pointer flex-wrap items-center gap-5 rounded-2xl border border-gray-200 border-l-4 border-l-pink-600 bg-white p-5 shadow-soft transition hover:shadow-lift sm:gap-6 sm:p-7"
       >
-        <div class="min-w-[260px] flex-[1.6]">
+        <div class="min-w-0 flex-[1.6]">
           <div class="mb-2 font-heading text-[11px] font-bold uppercase tracking-widest text-pink-600">Permintaan Sorotan</div>
           <div class="mb-2 flex flex-wrap items-center gap-2.5">
             <div class="font-heading text-2xl font-bold leading-tight text-gray-800">{{ sorot.item_name }}</div>
