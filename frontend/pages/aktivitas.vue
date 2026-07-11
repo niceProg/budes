@@ -79,7 +79,10 @@ const myTxns = computed(() =>
       </section>
 
       <section class="card mb-4 p-[22px]">
-        <h3 class="mb-3.5 text-[15.5px] font-extrabold">Pesananku</h3>
+        <div class="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-[15.5px] font-extrabold">Pesananku</h3>
+          <NuxtLink to="/etalase" class="btn-primary px-4 py-2 text-[12.5px]">+ Pesan dari Etalase</NuxtLink>
+        </div>
         <div v-if="myOrders.length" class="flex flex-col gap-2.5">
           <div v-for="o in myOrders" :key="o.id" class="flex flex-wrap items-center gap-3 rounded-xl border border-sand-200 px-[15px] py-3">
             <div class="min-w-[170px] flex-1">
