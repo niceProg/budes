@@ -192,6 +192,14 @@ export const useApp = defineStore('app', {
 
     // Komisi koperasi per transaksi (persen) — dari GET /api/pengaturan/komisi.
     commissionPct: 5,
+    // Pembukuan akumulatif (admin) — dari GET /api/pembukuan.
+    pembukuan: null as null | {
+      total_komisi: number
+      total_gross: number
+      jumlah_transaksi: number
+      komisi_demand: number
+      komisi_supply: number
+    },
 
     // UI transient
     modal: null as null | 'auth' | 'pledge' | 'order' | 'listingView' | 'listingEdit' | 'kycView',
@@ -275,7 +283,18 @@ export const useApp = defineStore('app', {
       mergeById(this.demands, r.demands)
       mergeById(this.listings, r.listings)
       await this.loadCommission()
-      if (this.user?.role === 'ADMIN_KOPERASI') await this.hydrateKyc()
+      if (this.user?.role === 'ADMIN_KOPERASI') {
+        await this.hydrateKyc()
+        await this.hydratePembukuan()
+      }
+    },
+    // Pembukuan akumulatif (admin).
+    async hydratePembukuan() {
+      const api = useApi()
+      if (!api.enabled || this.user?.role !== 'ADMIN_KOPERASI') return
+      try {
+        this.pembukuan = await api.data('/api/pembukuan')
+      } catch { /* biarkan null → dashboard fallback ke hitung dari txns */ }
     },
     // Muat persentase komisi koperasi terkini.
     async loadCommission() {

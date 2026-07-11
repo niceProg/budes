@@ -80,6 +80,38 @@ else
   echo "3 pengajuan KYC (1 pending, 1 verified, 1 rejected)."
 fi
 
+# ---------- transaksi selesai (mengisi pembukuan komisi) ----------
+TXN_N=$(curl -s "$API/api/transactions" -H "Authorization: Bearer $ADMIN" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('data',[])))" 2>/dev/null || echo 0)
+if [ "$TXN_N" -gt 0 ]; then
+  echo "== transaksi sudah ada ($TXN_N) — dilewati =="
+else
+  echo "== transaksi selesai (alur demand: pledge Beras) =="
+  PID=$(curl -s "$API/api/pledges" -H "Authorization: Bearer $WARGA" | python3 -c "
+import sys,json
+d=json.load(sys.stdin).get('data',[])
+p=[x for x in d if x.get('status')=='PLEDGED']
+print(p[0]['id'] if p else '')")
+  if [ -n "$PID" ]; then
+    curl -s -X PUT "$API/api/pledges/$PID" -H "Authorization: Bearer $WARGA" -H 'Content-Type: application/json' -d '{"status":"CONFIRMED"}' >/dev/null
+    curl -s -X POST "$API/api/pledges/$PID/verifikasi" -H "Authorization: Bearer $BUYER" -H 'Content-Type: application/json' -d '{}' >/dev/null
+    echo "  demand txn (Beras) dibuat."
+  fi
+  echo "== transaksi selesai (alur etalase: order Madu) =="
+  LID=$(curl -s "$API/api/listings?limit=100" | python3 -c "
+import sys,json
+d=json.load(sys.stdin).get('data',[])
+m=[x for x in d if 'Madu' in x.get('item_name','')]
+print(m[0]['id'] if m else (d[0]['id'] if d else ''))")
+  if [ -n "$LID" ]; then
+    OID=$(curl -s -X POST "$API/api/orders" -H "Authorization: Bearer $BUYER" -H 'Content-Type: application/json' -d "{\"listing_id\":\"$LID\",\"qty_ordered\":5}" | jdata id)
+    if [ -n "$OID" ]; then
+      curl -s -X PUT "$API/api/orders/$OID" -H "Authorization: Bearer $BUYER" -H 'Content-Type: application/json' -d '{"status":"CONFIRMED"}' >/dev/null
+      curl -s -X POST "$API/api/orders/$OID/verifikasi" -H "Authorization: Bearer $BUYER" -H 'Content-Type: application/json' -d '{}' >/dev/null
+      echo "  supply txn (Madu) dibuat."
+    fi
+  fi
+fi
+
 echo "== ringkasan =="
 echo "demands publik: $(count_demands) | listings: $(curl -s "$API/api/listings?limit=100" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('data',[])))")"
 echo "KYC: $(curl -s "$API/api/verifikasi" -H "Authorization: Bearer $ADMIN" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('data',[])))")"

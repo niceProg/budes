@@ -34,6 +34,11 @@ const txnList = computed(() =>
 const totGross = computed(() => app.txns.reduce((a, t) => a + t.gross, 0))
 const totFee = computed(() => totGross.value * feeRate.value)
 const unpaidCount = computed(() => app.txns.filter((t) => t.pay === 'UNPAID').length)
+
+// Angka akumulatif dari pembukuan backend (real); fallback ke hitung dari txns.
+const komisiTotal = computed(() => app.pembukuan?.total_komisi ?? totFee.value)
+const grossTotal = computed(() => app.pembukuan?.total_gross ?? totGross.value)
+const txnCount = computed(() => app.pembukuan?.jumlah_transaksi ?? app.txns.length)
 </script>
 
 <template>
@@ -44,12 +49,16 @@ const unpaidCount = computed(() => app.txns.filter((t) => t.pay === 'UNPAID').le
     <!-- stat tiles -->
     <div class="mb-5 grid gap-3.5" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))">
       <div class="card p-5">
-        <div class="mb-1 text-xs font-bold text-sand-600">Total Komisi ({{ app.commissionPct }}%)</div>
-        <div class="text-[23px] font-extrabold text-clay-600">{{ fmtRp(totFee) }}</div>
+        <div class="mb-1 text-xs font-bold text-sand-600">Total Komisi Koperasi</div>
+        <div class="text-[23px] font-extrabold text-clay-600">{{ fmtRp(komisiTotal) }}</div>
       </div>
       <div class="card p-5">
         <div class="mb-1 text-xs font-bold text-sand-600">Total Nilai Transaksi</div>
-        <div class="text-[23px] font-extrabold">{{ fmtRp(totGross) }}</div>
+        <div class="text-[23px] font-extrabold">{{ fmtRp(grossTotal) }}</div>
+      </div>
+      <div class="card p-5">
+        <div class="mb-1 text-xs font-bold text-sand-600">Jumlah Transaksi</div>
+        <div class="text-[23px] font-extrabold text-navy-800">{{ txnCount }}</div>
       </div>
       <div class="card p-5">
         <div class="mb-1 text-xs font-bold text-sand-600">Menunggu Pembayaran</div>
