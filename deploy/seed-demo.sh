@@ -27,6 +27,21 @@ ADMIN=$(auth "Pak Darto" "admin.demo@budes.id" "ADMIN_KOPERASI")
 [ -n "$BUYER" ] && [ -n "$WARGA" ] && [ -n "$ADMIN" ] || { echo "gagal auth demo"; exit 1; }
 echo "buyer/warga/admin siap."
 
+# Verifikasi budi & wati (wajib agar bisa transaksi) — submit KYC + admin approve.
+verify_user() { # $1 token $2 nik
+  local vid
+  vid=$(curl -s -X POST "$API/api/verifikasi" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
+    -d "{\"nik\":\"$2\",\"id_card_file\":\"seed-ktp.jpg\",\"support_doc_file\":null}" | jdata id)
+  [ -n "$vid" ] && curl -s -X PUT "$API/api/verifikasi/$vid" -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' -d '{"status":"VERIFIED"}' >/dev/null
+}
+if curl -s "$API/api/me" -H "Authorization: Bearer $BUYER" | grep -q '"verification_status":"VERIFIED"'; then
+  echo "budi sudah verified."
+else
+  echo "verifikasi budi & wati..."
+  verify_user "$BUYER" "3174050101900001"
+  verify_user "$WARGA" "3402014507870087"
+fi
+
 # ---------- demands & listings ----------
 if [ "$(count_demands)" -gt 0 ]; then
   echo "== demands/listings sudah ada — dilewati =="

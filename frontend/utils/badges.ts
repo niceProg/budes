@@ -13,7 +13,7 @@ const DANGER = 'bg-rose-100 text-rose-700' // merah
 const MUTE = 'bg-navy-250 text-navy-700' // netral/pasif
 
 export const DEMAND_BADGE: Map = {
-  DRAFT: { label: 'Draf', cls: MUTE },
+  DRAFT: { label: 'Menunggu DP', cls: WARN },
   OPEN: { label: 'Dibuka', cls: OK },
   PARTIAL: { label: 'Sebagian', cls: WARN },
   FULFILLED: { label: 'Terpenuhi', cls: DONE },

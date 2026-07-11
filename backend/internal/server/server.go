@@ -50,17 +50,21 @@ func New(pools *db.Pools, cfg config.Config, notifier *notify.Notifier) http.Han
 	role := func(h http.HandlerFunc, roles ...string) http.Handler {
 		return jwtMgr.Middleware(auth.RequireRole(roles...)(http.HandlerFunc(h)))
 	}
+	// verified: sama seperti role + wajib identitas terverifikasi (admin dikecualikan).
+	verified := func(h http.HandlerFunc, roles ...string) http.Handler {
+		return jwtMgr.Middleware(auth.RequireRole(roles...)(auth.RequireVerified(pools.App)(http.HandlerFunc(h))))
+	}
 
 	// --- Demand (Modul B, alur A) ---
 	demandRepo := demand.NewRepository(pools.App)
 	dH := demand.NewHandler(demand.NewService(demandRepo, notifier), demandRepo)
 	mux.HandleFunc("GET /api/demands", dH.List)        // publik
 	mux.HandleFunc("GET /api/demands/{id}", dH.Detail) // publik
-	mux.Handle("POST /api/demands", role(dH.Create, "BUYER"))
-	mux.Handle("POST /api/demands/{id}/dp", role(dH.PayDP, "BUYER"))
+	mux.Handle("POST /api/demands", verified(dH.Create, "BUYER"))
+	mux.Handle("POST /api/demands/{id}/dp", verified(dH.PayDP, "BUYER"))
 	mux.Handle("POST /api/demands/{id}/cancel", role(dH.Cancel, "BUYER"))
 	mux.Handle("POST /api/demands/{id}/expire", role(dH.Expire, "ADMIN_KOPERASI"))
-	mux.Handle("POST /api/demands/{id}/pledges", role(dH.CreatePledge, "WARGA"))
+	mux.Handle("POST /api/demands/{id}/pledges", verified(dH.CreatePledge, "WARGA"))
 	mux.Handle("GET /api/pledges", auth1(dH.MyPledges))
 	mux.Handle("PUT /api/pledges/{id}", auth1(dH.UpdatePledge))
 
@@ -69,10 +73,10 @@ func New(pools *db.Pools, cfg config.Config, notifier *notify.Notifier) http.Han
 	sH := supply.NewHandler(supplyRepo, notifier)
 	mux.HandleFunc("GET /api/listings", sH.List)        // publik
 	mux.HandleFunc("GET /api/listings/{id}", sH.Detail) // publik
-	mux.Handle("POST /api/listings", role(sH.CreateListing, "WARGA", "ADMIN_KOPERASI"))
+	mux.Handle("POST /api/listings", verified(sH.CreateListing, "WARGA", "ADMIN_KOPERASI"))
 	mux.Handle("PUT /api/listings/{id}", auth1(sH.SetListingStatus))
 	mux.Handle("GET /api/my/listings", auth1(sH.MyListings))
-	mux.Handle("POST /api/orders", role(sH.CreateOrder, "BUYER"))
+	mux.Handle("POST /api/orders", verified(sH.CreateOrder, "BUYER"))
 	mux.Handle("GET /api/orders", role(sH.MyOrders, "BUYER"))
 	mux.Handle("GET /api/orders/{id}", auth1(sH.OrderDetail))
 	mux.Handle("PUT /api/orders/{id}", auth1(sH.SetOrderStatus))
@@ -80,8 +84,8 @@ func New(pools *db.Pools, cfg config.Config, notifier *notify.Notifier) http.Han
 	// --- Settlement (Modul D+E: serah-terima, transaksi/komisi, sengketa) ---
 	settleRepo := settlement.NewRepository(pools.App)
 	stH := settlement.NewHandler(settleRepo, notifier)
-	mux.Handle("POST /api/pledges/{id}/verifikasi", role(stH.VerifyPledge, "BUYER"))
-	mux.Handle("POST /api/orders/{id}/verifikasi", role(stH.VerifyOrder, "BUYER"))
+	mux.Handle("POST /api/pledges/{id}/verifikasi", verified(stH.VerifyPledge, "BUYER"))
+	mux.Handle("POST /api/orders/{id}/verifikasi", verified(stH.VerifyOrder, "BUYER"))
 	mux.Handle("POST /api/pledges/{id}/lapor", auth1(stH.LaporPledge))
 	mux.Handle("POST /api/orders/{id}/lapor", auth1(stH.LaporOrder))
 	mux.Handle("GET /api/transactions", auth1(stH.List))
@@ -95,8 +99,8 @@ func New(pools *db.Pools, cfg config.Config, notifier *notify.Notifier) http.Han
 	// --- Pembayaran (gateway Mayar): DP demand & pelunasan transaksi ---
 	mayar := payment.NewMayar(cfg.Mayar.BaseURL, cfg.Mayar.APIKey)
 	payH := payment.NewHandler(mayar, payment.NewRepository(pools.App), demandRepo, settleRepo, notifier, cfg.FrontendURL)
-	mux.Handle("POST /api/demands/{id}/dp/pay", role(payH.PayDP, "BUYER"))
-	mux.Handle("POST /api/transactions/{kind}/{id}/pay", role(payH.PayTxn, "BUYER"))
+	mux.Handle("POST /api/demands/{id}/dp/pay", verified(payH.PayDP, "BUYER"))
+	mux.Handle("POST /api/transactions/{kind}/{id}/pay", verified(payH.PayTxn, "BUYER"))
 	mux.HandleFunc("POST /api/webhooks/mayar", payH.Webhook) // publik (webhook Mayar)
 
 	// --- Unggah berkas (foto KTP) ---

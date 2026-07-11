@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"budes/internal/httpx"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type ctxKey string
@@ -44,6 +46,25 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !allowed[RoleFrom(r.Context())] {
 				httpx.Error(w, http.StatusForbidden, "peran tidak diizinkan untuk aksi ini")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// RequireVerified memblokir user yang belum terverifikasi (verification_status != VERIFIED).
+func RequireVerified(pool *pgxpool.Pool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if RoleFrom(r.Context()) == "ADMIN_KOPERASI" { // admin koperasi dikecualikan
+				next.ServeHTTP(w, r)
+				return
+			}
+			var status string
+			err := pool.QueryRow(r.Context(), `SELECT verification_status FROM users WHERE id=$1`, UserID(r.Context())).Scan(&status)
+			if err != nil || status != "VERIFIED" {
+				httpx.Error(w, http.StatusForbidden, "Verifikasi identitas dulu untuk melakukan aksi ini.")
 				return
 			}
 			next.ServeHTTP(w, r)

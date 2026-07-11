@@ -80,10 +80,16 @@ const pledges = computed(() =>
 
         <div v-if="!app.isBuyer && !app.isAdmin" class="card p-6">
           <h3 class="mb-1.5 text-base font-extrabold">Punya hasil panen ini?</h3>
-          <p class="mb-4 text-[13px] leading-relaxed text-sand-700">
-            Sanggupi sebagian atau seluruhnya — sisa kebutuhan {{ det.sisaKuotaTxt }}.
+          <template v-if="det.status === 'OPEN' || det.status === 'PARTIAL'">
+            <p class="mb-4 text-[13px] leading-relaxed text-sand-700">
+              Sanggupi sebagian atau seluruhnya — sisa kebutuhan {{ det.sisaKuotaTxt }}.
+            </p>
+            <button class="btn-primary btn-block py-3.5 text-[14.5px]" @click="app.ctaPledge(det.id)">Sanggupi Permintaan</button>
+          </template>
+          <p v-else-if="det.status === 'DRAFT'" class="text-[13px] leading-relaxed text-sand-700">
+            ⏳ Menunggu pembayaran DP dari pembeli. Bisa disanggupi setelah permintaan aktif.
           </p>
-          <button class="btn-primary btn-block py-3.5 text-[14.5px]" @click="app.ctaPledge(det.id)">Sanggupi Permintaan</button>
+          <p v-else class="text-[13px] leading-relaxed text-sand-700">Permintaan ini sudah tidak menerima sanggupan.</p>
         </div>
       </div>
     </div>

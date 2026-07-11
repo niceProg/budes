@@ -19,7 +19,8 @@ func NewHandler(svc *Service, repo *Repository) *Handler { return &Handler{svc: 
 
 // List: GET /api/demands?status=OPEN,PARTIAL (publik)
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	statuses := []string{"OPEN", "PARTIAL"}
+	// DRAFT ikut tampil (permintaan belum bayar DP) — dibedakan lewat badge di frontend.
+	statuses := []string{"DRAFT", "OPEN", "PARTIAL"}
 	if s := r.URL.Query().Get("status"); s != "" {
 		statuses = splitCSV(s)
 	}

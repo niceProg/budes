@@ -9,12 +9,21 @@ onMounted(() => {
   app.refreshMe()
 })
 
-const verified = computed(() => app.user?.ver === 'VERIFIED')
-const rejected = computed(() => app.user?.ver === 'REJECTED')
-const decided = computed(() => verified.value || rejected.value)
+const status = computed(() => app.user?.ver || 'UNVERIFIED')
+// Form hanya bisa diisi bila BELUM pernah mengajukan (UNVERIFIED).
+const canSubmit = computed(() => status.value === 'UNVERIFIED')
+
+const tone = computed(() =>
+  status.value === 'VERIFIED'
+    ? { icon: '✅', box: 'border-success-200 bg-success-50', text: 'text-success-700', title: 'Identitas terverifikasi', sub: 'Akunmu sudah tepercaya — bisa bertransaksi penuh.' }
+    : status.value === 'PENDING'
+      ? { icon: '⏳', box: 'border-warning-200 bg-warning-50', text: 'text-warning-800', title: 'Menunggu tinjauan koperasi', sub: 'Pengajuanmu sudah dikirim & sedang ditinjau admin. Mohon tunggu.' }
+      : status.value === 'REJECTED'
+        ? { icon: '❌', box: 'border-rose-200 bg-rose-50', text: 'text-rose-700', title: 'Pengajuan ditolak', sub: 'Pengajuanmu ditolak koperasi. Silakan hubungi admin.' }
+        : { icon: '🪪', box: 'border-clay-200 bg-clay-50', text: 'text-clay-700', title: 'Belum terverifikasi', sub: 'Kirim pengajuan di bawah agar bisa bertransaksi.' },
+)
 
 const ktpUploaded = computed(() => !!app.kycForm.ktpFile)
-
 function onFile(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (file) app.uploadKtp(file)
@@ -25,27 +34,19 @@ function onFile(e: Event) {
   <div class="mx-auto max-w-[560px] px-5 pb-16 pt-7">
     <h2 class="mb-1 text-[22px] font-extrabold">Verifikasi Identitas</h2>
     <p class="mb-5 text-[13.5px] text-sand-700">
-      Ajukan verifikasi KTP agar akunmu tepercaya di Bursa Desa. Koperasi (KDMP) akan meninjau pengajuanmu.
+      Verifikasi KTP wajib sebelum bisa bertransaksi (membuat permintaan, menyanggupi, memesan, menitipkan). Koperasi (KDMP) meninjau pengajuanmu.
     </p>
 
-    <!-- status saat ini -->
-    <div
-      class="mb-5 flex items-center gap-3 rounded-xl border p-4"
-      :class="verified ? 'border-success-200 bg-success-50' : rejected ? 'border-rose-200 bg-rose-50' : 'border-warning-200 bg-warning-50'"
-    >
-      <span class="text-2xl">{{ verified ? '✅' : rejected ? '❌' : '⏳' }}</span>
+    <div class="mb-5 flex items-center gap-3 rounded-xl border p-4" :class="tone.box">
+      <span class="text-2xl">{{ tone.icon }}</span>
       <div>
-        <div class="text-[14px] font-extrabold" :class="verified ? 'text-success-700' : rejected ? 'text-rose-700' : 'text-warning-800'">
-          {{ verified ? 'Identitas terverifikasi' : rejected ? 'Pengajuan ditolak' : 'Belum terverifikasi' }}
-        </div>
-        <div class="text-[12.5px] text-sand-700">
-          {{ verified ? 'Akunmu sudah tepercaya.' : rejected ? 'Pengajuanmu ditolak koperasi. Silakan hubungi admin.' : 'Kirim pengajuan di bawah untuk ditinjau koperasi.' }}
-        </div>
+        <div class="text-[14px] font-extrabold" :class="tone.text">{{ tone.title }}</div>
+        <div class="text-[12.5px] text-sand-700">{{ tone.sub }}</div>
       </div>
     </div>
 
-    <!-- form pengajuan (hanya bila belum diputuskan admin) -->
-    <section v-if="!decided" class="card p-6">
+    <!-- form pengajuan (hanya bila belum pernah mengajukan) -->
+    <section v-if="canSubmit" class="card p-6">
       <div class="mb-3.5">
         <label class="field-label">NIK (16 digit)</label>
         <input v-model="app.kycForm.nik" inputmode="numeric" maxlength="16" placeholder="3402xxxxxxxxxxxx" class="field-input font-mono" />
@@ -70,7 +71,7 @@ function onFile(e: Event) {
     </section>
 
     <div v-else class="card p-6 text-center text-[13px] text-sand-700">
-      Status verifikasimu sudah final. Kamu tak perlu mengirim pengajuan lagi.
+      {{ status === 'PENDING' ? 'Pengajuanmu sedang ditinjau — kamu tak perlu mengirim ulang.' : 'Status verifikasimu sudah final. Kamu tak perlu mengirim pengajuan lagi.' }}
     </div>
   </div>
 </template>

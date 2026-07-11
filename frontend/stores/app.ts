@@ -8,7 +8,7 @@ export interface User {
   id: string
   name: string
   role: Role
-  ver: 'VERIFIED' | 'PENDING' | 'REJECTED'
+  ver: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED'
 }
 interface PledgeRow {
   id: string
@@ -91,6 +91,7 @@ function routeFor(screen: string, id?: string): string {
     case 'titip': return '/titip'
     case 'saya': return '/aktivitas'
     case 'dash': return '/dashboard'
+    case 'verif': return '/verifikasi-identitas'
     default: return '/'
   }
 }
@@ -101,12 +102,9 @@ function mapUser(u: any): User {
     id: u.id,
     name: u.name,
     role: u.role as Role,
-    ver:
-      u.verification_status === 'VERIFIED'
-        ? 'VERIFIED'
-        : u.verification_status === 'REJECTED'
-          ? 'REJECTED'
-          : 'PENDING',
+    ver: (['UNVERIFIED', 'PENDING', 'VERIFIED', 'REJECTED'].includes(u.verification_status)
+      ? u.verification_status
+      : 'UNVERIFIED') as User['ver'],
   }
 }
 
@@ -259,13 +257,15 @@ export const useApp = defineStore('app', {
     isAdmin: (s) => s.user?.role === 'ADMIN_KOPERASI',
     userInitial: (s) => (s.user ? initial(s.user.name) : ''),
     userRoleLabel: (s) => (s.user ? ROLE_LABEL[s.user.role] : ''),
+    isVerified: (s) => s.user?.ver === 'VERIFIED',
     userVerLabel: (s) =>
       s.user
-        ? s.user.ver === 'VERIFIED'
-          ? 'Terverifikasi ✓'
-          : s.user.ver === 'REJECTED'
-            ? 'Ditolak'
-            : 'Menunggu verifikasi'
+        ? ({
+            VERIFIED: 'Terverifikasi ✓',
+            PENDING: 'Menunggu verifikasi',
+            REJECTED: 'Ditolak',
+            UNVERIFIED: 'Belum verifikasi',
+          } as Record<string, string>)[s.user.ver] || 'Belum verifikasi'
         : '',
   },
 
@@ -410,6 +410,15 @@ export const useApp = defineStore('app', {
       clearTimeout(toastTimer)
       this.toast = msg
       toastTimer = setTimeout(() => (this.toast = ''), 3000)
+    },
+    // Wajib terverifikasi untuk transaksi/aktivitas. Redirect ke halaman verifikasi bila belum.
+    requireVerified(): boolean {
+      if (!useApi().enabled) return true // mode mock: lewati
+      if (this.user?.ver === 'VERIFIED') return true
+      this.closeModal()
+      this.showToast('Verifikasi identitasmu dulu untuk melakukan aksi ini.')
+      navigateTo(routeFor('verif'))
+      return false
     },
     closeModal() {
       this.modal = null
@@ -626,6 +635,7 @@ export const useApp = defineStore('app', {
         this.showToast('Menyanggupi khusus peran Warga Desa.')
         return
       }
+      if (!this.requireVerified()) return
       this.modal = 'pledge'
       this.modErr = ''
       this.pledgeQty = ''
@@ -642,6 +652,7 @@ export const useApp = defineStore('app', {
         this.showToast('Memesan khusus peran Pembeli.')
         return
       }
+      if (!this.requireVerified()) return
       this.modal = 'order'
       this.modErr = ''
       this.orderQty = ''
@@ -657,6 +668,7 @@ export const useApp = defineStore('app', {
         this.showToast('Membuat permintaan khusus peran Pembeli.')
         return
       }
+      if (!this.requireVerified()) return
       this.buatStep = 1
       this.buatErr = ''
       navigateTo(routeFor('buat'))
@@ -837,6 +849,7 @@ export const useApp = defineStore('app', {
 
     // ---- titip komoditas ----
     async submitTitip() {
+      if (!this.requireVerified()) return
       const t = this.titip
       const qty = parseFloat(t.qty) || 0
       const harga = parseFloat(t.harga) || 0

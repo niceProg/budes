@@ -5,7 +5,7 @@ import { decorateDemand } from '~/utils/decorate'
 const app = useApp()
 
 const FILTERS: Record<string, string[] | null> = {
-  AKTIF: ['OPEN', 'PARTIAL'],
+  AKTIF: ['DRAFT', 'OPEN', 'PARTIAL'],
   OPEN: ['OPEN'],
   PARTIAL: ['PARTIAL'],
   SEMUA: null,
