@@ -2,6 +2,9 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   devtools: { enabled: false },
+  // Pertahankan konteks Nuxt setelah await di SSR — agar useCookie/useRuntimeConfig
+  // di dalam action store (hydrateUser dsb) tetap membaca cookie auth saat render server.
+  experimental: { asyncContext: true },
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
