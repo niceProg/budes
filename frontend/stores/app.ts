@@ -200,6 +200,10 @@ export const useApp = defineStore('app', {
       komisi_demand: number
       komisi_supply: number
     },
+    // Angka landing (publik) — dari GET /api/stats.
+    stats: null as null | { demands: number; warga: number; listings: number },
+    // Daftar koperasi (dropdown pendaftaran) — dari GET /api/ref/koperasi.
+    koperasiList: [] as string[],
     // Insight demand & supply (admin) — dari GET /api/insights.
     insights: null as null | {
       demand_total: number
@@ -261,12 +265,39 @@ export const useApp = defineStore('app', {
       const api = useApi()
       if (!api.enabled) { this.booted = true; return } // mode mock: biarkan data contoh
       try {
-        await this.hydratePublic()
+        await Promise.all([this.hydratePublic(), this.loadStats(), this.loadKoperasi()])
         if (api.token.value) await this.hydrateUser()
       } catch (e) {
         // Diamkan saat SSR agar halaman tetap render; klien bisa retry.
       }
       this.booted = true
+    },
+    // Angka landing (publik).
+    async loadStats() {
+      const api = useApi()
+      if (!api.enabled) return
+      try { this.stats = await api.data('/api/stats') } catch { /* biarkan */ }
+    },
+    // Daftar koperasi untuk dropdown pendaftaran (publik).
+    async loadKoperasi() {
+      const api = useApi()
+      if (!api.enabled) return
+      try {
+        const list = await api.data<any[]>('/api/ref/koperasi')
+        const names = (list || []).map((k) => k.nama_koperasi).filter(Boolean)
+        if (names.length) this.koperasiList = Array.from(new Set(names))
+      } catch { /* biarkan pakai default */ }
+    },
+    // Batas harga komoditas (admin) — dari API.
+    async loadPriceCaps() {
+      const api = useApi()
+      if (!api.enabled || this.user?.role !== 'ADMIN_KOPERASI') return
+      try {
+        const list = await api.data<any[]>('/api/pengaturan/harga')
+        this.priceCaps = (list || []).map((p) => ({
+          id: p.id, komoditas: p.komoditas, satuan: p.satuan, maxJual: p.max_jual, maxBeli: p.max_beli,
+        }))
+      } catch { /* biarkan */ }
     },
     async hydratePublic() {
       const api = useApi()
@@ -298,6 +329,7 @@ export const useApp = defineStore('app', {
         await this.hydrateKyc()
         await this.hydratePembukuan()
         await this.hydrateInsights()
+        await this.loadPriceCaps()
       }
     },
     // Insight demand & supply (admin).
@@ -990,8 +1022,24 @@ export const useApp = defineStore('app', {
       this.showToast(`Komisi koperasi diperbarui menjadi ${this.commissionPct}% per transaksi.`)
     },
 
-    // ---- pengaturan batas harga komoditas (lokal — tak ada endpoint backend) ----
-    savePriceCaps() {
+    // ---- pengaturan batas harga komoditas (GET/PUT /api/pengaturan/harga) ----
+    async savePriceCaps() {
+      const api = useApi()
+      if (api.enabled) {
+        this.busy = true
+        try {
+          await api.req('/api/pengaturan/harga', {
+            method: 'PUT',
+            body: {
+              caps: this.priceCaps
+                .filter((c) => c.komoditas.trim())
+                .map((c) => ({ komoditas: c.komoditas.trim(), satuan: c.satuan || 'kg', max_jual: Number(c.maxJual) || 0, max_beli: Number(c.maxBeli) || 0 })),
+            },
+          })
+          await this.loadPriceCaps()
+        } catch (e) { this.showToast(errMsg(e)); return }
+        finally { this.busy = false }
+      }
       this.showToast('Batas harga komoditas diperbarui.')
     },
     addPriceCap() {

@@ -21,6 +21,13 @@ type Txn struct {
 	WargaID       string  `json:"warga_id,omitempty"`
 }
 
+// PublicStats = angka ringkas untuk landing (publik).
+type PublicStats struct {
+	Demands  int `json:"demands"`
+	Warga    int `json:"warga"`
+	Listings int `json:"listings"`
+}
+
 // TopItem = komoditas etalase terlaris (unit terjual).
 type TopItem struct {
 	ItemName string  `json:"item_name"`

@@ -87,6 +87,7 @@ func New(pools *db.Pools, cfg config.Config, notifier *notify.Notifier) http.Han
 	mux.Handle("PUT /api/transactions/{kind}/{id}", role(stH.UpdatePayment, "ADMIN_KOPERASI"))
 	mux.Handle("GET /api/pembukuan", role(stH.Pembukuan, "ADMIN_KOPERASI"))
 	mux.Handle("GET /api/insights", role(stH.Insights, "ADMIN_KOPERASI"))
+	mux.HandleFunc("GET /api/stats", stH.Stats) // publik (landing)
 	mux.Handle("GET /api/disputes", role(stH.ListDisputes, "ADMIN_KOPERASI"))
 	mux.Handle("PUT /api/disputes/{id}", role(stH.ResolveDispute, "ADMIN_KOPERASI"))
 
@@ -111,6 +112,8 @@ func New(pools *db.Pools, cfg config.Config, notifier *notify.Notifier) http.Han
 	setH := settings.NewHandler(settings.NewRepository(pools.App))
 	mux.Handle("GET /api/pengaturan/komisi", auth1(setH.GetKomisi))
 	mux.Handle("PUT /api/pengaturan/komisi", role(setH.SetKomisi, "ADMIN_KOPERASI"))
+	mux.Handle("GET /api/pengaturan/harga", auth1(setH.GetHarga))
+	mux.Handle("PUT /api/pengaturan/harga", role(setH.SetHarga, "ADMIN_KOPERASI"))
 
 	// --- Riwayat pengguna (Modul A) ---
 	rH := riwayat.NewHandler(demandRepo, supplyRepo, settleRepo)

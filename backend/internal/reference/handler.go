@@ -19,12 +19,8 @@ func NewHandler(repo *Repository) *Handler {
 
 // SearchKoperasi: GET /api/ref/koperasi?q=&limit=
 func (h *Handler) SearchKoperasi(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query().Get("q")
-	if q == "" {
-		httpx.Error(w, http.StatusBadRequest, "parameter 'q' wajib diisi")
-		return
-	}
-	res, err := h.repo.SearchKoperasi(r.Context(), q, clampLimit(r, 20))
+	q := r.URL.Query().Get("q") // kosong = daftar (top N) untuk dropdown pendaftaran
+	res, err := h.repo.SearchKoperasi(r.Context(), q, clampLimit(r, 50))
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return

@@ -112,6 +112,21 @@ print(m[0]['id'] if m else (d[0]['id'] if d else ''))")
   fi
 fi
 
+# ---------- batas harga komoditas ----------
+PC_N=$(curl -s "$API/api/pengaturan/harga" -H "Authorization: Bearer $ADMIN" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('data',[])))" 2>/dev/null || echo 0)
+if [ "$PC_N" -gt 0 ]; then
+  echo "== batas harga sudah ada ($PC_N) — dilewati =="
+else
+  echo "== seed batas harga komoditas =="
+  curl -s -X PUT "$API/api/pengaturan/harga" -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' -d '{"caps":[
+    {"komoditas":"Beras","satuan":"kg","max_jual":13000,"max_beli":15000},
+    {"komoditas":"Jagung Pipil","satuan":"kg","max_jual":5500,"max_beli":6500},
+    {"komoditas":"Cabai Merah","satuan":"kg","max_jual":40000,"max_beli":45000},
+    {"komoditas":"Kopi Robusta","satuan":"kg","max_jual":68000,"max_beli":75000},
+    {"komoditas":"Kelapa","satuan":"butir","max_jual":3800,"max_beli":4500}
+  ]}' >/dev/null && echo "5 batas harga dibuat."
+fi
+
 echo "== ringkasan =="
 echo "demands publik: $(count_demands) | listings: $(curl -s "$API/api/listings?limit=100" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('data',[])))")"
 echo "KYC: $(curl -s "$API/api/verifikasi" -H "Authorization: Bearer $ADMIN" | python3 -c "import sys,json;print(len(json.load(sys.stdin).get('data',[])))")"

@@ -29,11 +29,15 @@ const sorot = computed(() => {
 })
 const gridList = computed(() => pasarList.value.filter((d) => d.id !== sorot.value?.id))
 
-const stats = [
-  { n: '500+', l: 'Koperasi Desa' },
-  { n: '12rb+', l: 'Warga Anggota' },
-  { n: '80+', l: 'Komoditas' },
-]
+// Angka nyata dari backend (GET /api/stats); '—' selama belum termuat.
+const stats = computed(() => {
+  const s = app.stats
+  return [
+    { n: s ? String(s.demands) : '—', l: 'Permintaan' },
+    { n: s ? String(s.warga) : '—', l: 'Warga Terdaftar' },
+    { n: s ? String(s.listings) : '—', l: 'Komoditas Etalase' },
+  ]
+})
 const tahapan = [
   { ikon: '📋', judul: 'Pembeli Memposting Kebutuhan', teks: 'Pembeli usaha mengumumkan komoditas, jumlah, dan harga target — lalu membayar uang muka 30%.' },
   { ikon: '🤝', judul: 'Warga Menyanggupi', teks: 'Warga desa menyanggupi sesuai kapasitas panen. Satu kebutuhan besar dirakit gotong royong.' },

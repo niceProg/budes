@@ -275,6 +275,16 @@ func (r *Repository) Pembukuan(ctx context.Context) (*Pembukuan, error) {
 	return &p, nil
 }
 
+// PublicStats menghitung angka ringkas untuk landing (publik).
+func (r *Repository) PublicStats(ctx context.Context) (*PublicStats, error) {
+	var s PublicStats
+	err := r.pool.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM demands),
+		(SELECT count(*) FROM users WHERE role='WARGA'),
+		(SELECT count(*) FROM supply_listings)`).Scan(&s.Demands, &s.Warga, &s.Listings)
+	return &s, err
+}
+
 // Insights menghitung ringkasan demand & supply untuk dashboard admin.
 func (r *Repository) Insights(ctx context.Context) (*Insights, error) {
 	ins := &Insights{DemandByStatus: map[string]int{}, TopSelling: []TopItem{}}

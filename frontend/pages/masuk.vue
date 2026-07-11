@@ -2,6 +2,9 @@
 import { useApp, KOPERASI } from '~/stores/app'
 const app = useApp()
 
+// Daftar koperasi dari backend (GET /api/ref/koperasi); fallback ke daftar bawaan.
+const koperasiOptions = computed(() => (app.koperasiList.length ? app.koperasiList : KOPERASI))
+
 // Opsi peran untuk kartu pilih peran (ikon = path SVG gaya lucide).
 const roleOpts = [
   {
@@ -123,7 +126,7 @@ const roleOpts = [
             <div class="mb-2.5">
               <label class="field-label">Koperasi desa</label>
               <select v-model="app.reg.koperasi" class="field-input">
-                <option v-for="k in KOPERASI" :key="k" :value="k">{{ k }}</option>
+                <option v-for="k in koperasiOptions" :key="k" :value="k">{{ k }}</option>
               </select>
             </div>
             <div>
