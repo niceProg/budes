@@ -86,6 +86,7 @@ func New(pools *db.Pools, cfg config.Config, notifier *notify.Notifier) http.Han
 	mux.Handle("GET /api/transactions", auth1(stH.List))
 	mux.Handle("PUT /api/transactions/{kind}/{id}", role(stH.UpdatePayment, "ADMIN_KOPERASI"))
 	mux.Handle("GET /api/pembukuan", role(stH.Pembukuan, "ADMIN_KOPERASI"))
+	mux.Handle("GET /api/insights", role(stH.Insights, "ADMIN_KOPERASI"))
 	mux.Handle("GET /api/disputes", role(stH.ListDisputes, "ADMIN_KOPERASI"))
 	mux.Handle("PUT /api/disputes/{id}", role(stH.ResolveDispute, "ADMIN_KOPERASI"))
 

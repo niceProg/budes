@@ -275,6 +275,55 @@ func (r *Repository) Pembukuan(ctx context.Context) (*Pembukuan, error) {
 	return &p, nil
 }
 
+// Insights menghitung ringkasan demand & supply untuk dashboard admin.
+func (r *Repository) Insights(ctx context.Context) (*Insights, error) {
+	ins := &Insights{DemandByStatus: map[string]int{}, TopSelling: []TopItem{}}
+
+	rows, err := r.pool.Query(ctx, `SELECT demand_status, count(*),
+		COALESCE(SUM(total_qty*target_price_per_item),0)::float8
+		FROM demands GROUP BY demand_status`)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var st string
+		var c int
+		var v float64
+		if err := rows.Scan(&st, &c, &v); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		ins.DemandByStatus[st] = c
+		ins.DemandTotal += c
+		ins.DemandValue += v
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if err := r.pool.QueryRow(ctx, `SELECT count(*), COALESCE(SUM(qty_sold),0),
+		COALESCE(SUM(qty_sold*price_per_item),0)::float8, COUNT(*) FILTER (WHERE qty_sold>0)
+		FROM supply_listings`).Scan(&ins.ListingTotal, &ins.SupplySold, &ins.SupplyRevenue, &ins.LarisCount); err != nil {
+		return nil, err
+	}
+
+	trows, err := r.pool.Query(ctx, `SELECT item_name, satuan, qty_sold, (qty_sold*price_per_item)::float8
+		FROM supply_listings WHERE qty_sold>0 ORDER BY qty_sold DESC LIMIT 5`)
+	if err != nil {
+		return nil, err
+	}
+	defer trows.Close()
+	for trows.Next() {
+		var t TopItem
+		if err := trows.Scan(&t.ItemName, &t.Satuan, &t.Sold, &t.Revenue); err != nil {
+			return nil, err
+		}
+		ins.TopSelling = append(ins.TopSelling, t)
+	}
+	return ins, trows.Err()
+}
+
 func valueOr(a, b *float64) float64 {
 	if a != nil {
 		return *a

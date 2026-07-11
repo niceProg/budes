@@ -39,6 +39,9 @@ const unpaidCount = computed(() => app.txns.filter((t) => t.pay === 'UNPAID').le
 const komisiTotal = computed(() => app.pembukuan?.total_komisi ?? totFee.value)
 const grossTotal = computed(() => app.pembukuan?.total_gross ?? totGross.value)
 const txnCount = computed(() => app.pembukuan?.jumlah_transaksi ?? app.txns.length)
+
+const ins = computed(() => app.insights)
+const wargaNet = computed(() => Math.max(0, grossTotal.value - komisiTotal.value))
 </script>
 
 <template>
@@ -65,6 +68,62 @@ const txnCount = computed(() => app.pembukuan?.jumlah_transaksi ?? app.txns.leng
         <div class="text-[23px] font-extrabold text-warning-700">{{ unpaidCount }}</div>
       </div>
     </div>
+
+    <!-- insight pasar -->
+    <section v-if="ins" class="mb-4 grid gap-3.5" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))">
+      <!-- Permintaan -->
+      <div class="card p-5">
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-[14px] font-extrabold">Permintaan (Demand)</h3>
+          <span class="text-[22px] font-extrabold text-clay-600">{{ ins.demand_total }}</span>
+        </div>
+        <div class="flex flex-col gap-1.5 text-[12.5px]">
+          <div class="flex justify-between"><span class="text-sand-600">Aktif (dibuka + sebagian)</span><span class="font-bold text-success-700">{{ (ins.demand_by_status.OPEN || 0) + (ins.demand_by_status.PARTIAL || 0) }}</span></div>
+          <div class="flex justify-between"><span class="text-sand-600">Terpenuhi</span><span class="font-bold">{{ ins.demand_by_status.FULFILLED || 0 }}</span></div>
+          <div class="flex justify-between"><span class="text-sand-600">Nilai total permintaan</span><span class="font-bold">{{ fmtRp(ins.demand_value) }}</span></div>
+        </div>
+      </div>
+
+      <!-- Etalase / terlaris -->
+      <div class="card p-5">
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-[14px] font-extrabold">Etalase (Supply)</h3>
+          <span class="text-[22px] font-extrabold text-grape-700">{{ ins.listing_total }}</span>
+        </div>
+        <div class="mb-2 flex justify-between text-[12.5px]">
+          <span class="text-sand-600">Item laris (pernah terjual)</span>
+          <span class="font-bold text-success-700">{{ ins.laris_count }} item · {{ ins.supply_sold }} unit</span>
+        </div>
+        <div v-if="ins.top_selling.length" class="mt-2 border-t border-sand-200 pt-2">
+          <div class="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-sand-600">Terlaris</div>
+          <div v-for="(t, i) in ins.top_selling" :key="i" class="flex items-center justify-between py-0.5 text-[12.5px]">
+            <span class="font-bold">{{ i + 1 }}. {{ t.item_name }}</span>
+            <span class="text-sand-700">{{ t.sold }} {{ t.satuan || '' }} · {{ fmtRp(t.revenue) }}</span>
+          </div>
+        </div>
+        <p v-else class="text-[12px] text-sand-600">Belum ada penjualan.</p>
+      </div>
+
+      <!-- Bagi hasil -->
+      <div class="card p-5">
+        <h3 class="mb-3 text-[14px] font-extrabold">Bagi Hasil Transaksi</h3>
+        <div class="mb-3 flex h-2.5 overflow-hidden rounded-full bg-sand-200">
+          <div class="bg-clay-600" :style="{ width: (grossTotal ? (komisiTotal / grossTotal * 100) : 0) + '%' }"></div>
+          <div class="bg-success-600" :style="{ width: (grossTotal ? (wargaNet / grossTotal * 100) : 0) + '%' }"></div>
+        </div>
+        <div class="flex flex-col gap-1.5 text-[12.5px]">
+          <div class="flex justify-between">
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-clay-600"></span>Koperasi (komisi {{ app.commissionPct }}%)</span>
+            <span class="font-extrabold text-clay-600">{{ fmtRp(komisiTotal) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-success-600"></span>Warga (net penjual)</span>
+            <span class="font-extrabold text-success-700">{{ fmtRp(wargaNet) }}</span>
+          </div>
+          <div class="flex justify-between border-t border-sand-200 pt-1.5"><span class="text-sand-600">Total nilai transaksi</span><span class="font-bold">{{ fmtRp(grossTotal) }}</span></div>
+        </div>
+      </div>
+    </section>
 
     <!-- transaksi -->
     <section class="card mb-4 p-[22px]">

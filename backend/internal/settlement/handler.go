@@ -163,6 +163,16 @@ func (h *Handler) Pembukuan(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, p)
 }
 
+// Insights: GET /api/insights (ADMIN_KOPERASI) — ringkasan demand & supply.
+func (h *Handler) Insights(w http.ResponseWriter, r *http.Request) {
+	res, err := h.repo.Insights(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	httpx.OK(w, res)
+}
+
 func writeErr(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):

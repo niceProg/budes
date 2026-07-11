@@ -200,6 +200,17 @@ export const useApp = defineStore('app', {
       komisi_demand: number
       komisi_supply: number
     },
+    // Insight demand & supply (admin) — dari GET /api/insights.
+    insights: null as null | {
+      demand_total: number
+      demand_by_status: Record<string, number>
+      demand_value: number
+      listing_total: number
+      laris_count: number
+      supply_sold: number
+      supply_revenue: number
+      top_selling: { item_name: string; satuan: string | null; sold: number; revenue: number }[]
+    },
 
     // UI transient
     modal: null as null | 'auth' | 'pledge' | 'order' | 'listingView' | 'listingEdit' | 'kycView',
@@ -286,7 +297,16 @@ export const useApp = defineStore('app', {
       if (this.user?.role === 'ADMIN_KOPERASI') {
         await this.hydrateKyc()
         await this.hydratePembukuan()
+        await this.hydrateInsights()
       }
+    },
+    // Insight demand & supply (admin).
+    async hydrateInsights() {
+      const api = useApi()
+      if (!api.enabled || this.user?.role !== 'ADMIN_KOPERASI') return
+      try {
+        this.insights = await api.data('/api/insights')
+      } catch { /* biarkan null */ }
     },
     // Pembukuan akumulatif (admin).
     async hydratePembukuan() {
