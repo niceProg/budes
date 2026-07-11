@@ -2,6 +2,7 @@
 import { useApp } from '~/stores/app'
 import { decorateListing } from '~/utils/decorate'
 const app = useApp()
+onMounted(() => app.hydratePublic()) // segarkan data agar sinkron lintas peran
 // Warga hanya melihat titipan miliknya sendiri; peran lain melihat semua etalase.
 const rows = computed(() => {
   const src = app.isWarga ? app.listings.filter((l) => l.owner === app.user?.id) : app.listings

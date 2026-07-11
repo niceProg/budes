@@ -8,12 +8,15 @@ const FILTERS: Record<string, string[] | null> = {
   AKTIF: ['DRAFT', 'OPEN', 'PARTIAL'],
   OPEN: ['OPEN'],
   PARTIAL: ['PARTIAL'],
-  SEMUA: null,
+  SELESAI: ['FULFILLED'],
+  SEMUA: ['DRAFT', 'OPEN', 'PARTIAL', 'FULFILLED'], // tanpa CANCELLED
 }
+onMounted(() => app.hydratePublic()) // segarkan data agar sinkron lintas peran
 const chips = [
   { key: 'AKTIF', label: 'Aktif' },
   { key: 'OPEN', label: 'Dibuka' },
   { key: 'PARTIAL', label: 'Sebagian' },
+  { key: 'SELESAI', label: 'Selesai' },
   { key: 'SEMUA', label: 'Semua' },
 ] as const
 

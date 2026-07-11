@@ -3,6 +3,7 @@ import { useApp } from '~/stores/app'
 import { decorateDemand } from '~/utils/decorate'
 import { fmtN } from '~/composables/useFormat'
 const app = useApp()
+onMounted(() => app.hydratePublic()) // segarkan data agar sinkron
 // Hanya tampilkan permintaan yang masih aktif dijual: Dibuka (OPEN) & Sebagian (PARTIAL).
 // Draf, Terpenuhi, dan Dibatalkan tidak ditampilkan.
 const rows = computed(() =>

@@ -31,7 +31,7 @@ const adminLinks = [
   <!-- ============ ADMIN KOPERASI: sidebar (drawer di mobile) ============ -->
   <div v-if="app.isAdmin" class="min-h-screen lg:flex">
     <!-- Topbar mobile -->
-    <div class="sticky top-0 z-30 flex items-center justify-between border-b border-sand-400 bg-white px-4 py-3 lg:hidden">
+    <div class="sticky top-0 z-30 flex items-center justify-between border-b border-sand-400 bg-white px-4 py-3 lg:!hidden">
       <div class="flex items-center gap-2.5">
         <div class="flex h-8 w-8 items-center justify-center rounded-[9px] bg-pink-gradient text-[13px] font-extrabold text-white">BD</div>
         <div class="text-[14px] font-extrabold leading-tight">Bursa Desa <span class="ml-1 text-[10px] font-bold uppercase tracking-wider text-navy-600">Admin</span></div>
@@ -55,7 +55,7 @@ const adminLinks = [
             <div class="text-[10px] font-bold uppercase tracking-wider text-navy-600">Panel Koperasi</div>
           </div>
         </div>
-        <button class="rounded-lg p-1.5 text-sand-600 hover:bg-sand-150 lg:hidden" aria-label="Tutup menu" @click="menuOpen = false">✕</button>
+        <button class="rounded-lg p-1.5 text-sand-600 hover:bg-sand-150 lg:!hidden" aria-label="Tutup menu" @click="menuOpen = false">✕</button>
       </div>
       <NuxtLink v-for="l in adminLinks" :key="l.to" :to="l.to" class="sb" :class="isActive(l.to) ? 'sb-on' : 'sb-off'">{{ l.label }}</NuxtLink>
       <div class="flex-1" />
@@ -108,7 +108,7 @@ const adminLinks = [
         </div>
 
         <!-- Hamburger (mobile) -->
-        <button class="ham lg:hidden" :aria-label="menuOpen ? 'Tutup menu' : 'Buka menu'" @click="menuOpen = !menuOpen">
+        <button class="ham lg:!hidden" :aria-label="menuOpen ? 'Tutup menu' : 'Buka menu'" @click="menuOpen = !menuOpen">
           <span :class="{ 'ham-x1': menuOpen }"></span>
           <span :class="{ 'ham-hide': menuOpen }"></span>
           <span :class="{ 'ham-x2': menuOpen }"></span>

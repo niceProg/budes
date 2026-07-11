@@ -139,7 +139,7 @@ function mergeById<T extends { id: string }>(target: T[], extra: T[] | undefined
 export const useApp = defineStore('app', {
   state: () => ({
     user: null as User | null,
-    filter: 'AKTIF' as 'AKTIF' | 'OPEN' | 'PARTIAL' | 'SEMUA',
+    filter: 'AKTIF' as 'AKTIF' | 'OPEN' | 'PARTIAL' | 'SELESAI' | 'SEMUA',
     booted: false,
     // Data awal = contoh (dipakai saat mode mock / apiBase kosong). Ditimpa boot() saat API aktif.
     demands: [
@@ -315,9 +315,10 @@ export const useApp = defineStore('app', {
     },
     async hydratePublic() {
       const api = useApi()
+      // Ambil SEMUA status (termasuk FULFILLED) agar konsisten lintas peran — bukan cuma AKTIF.
       const [demands, listings] = await Promise.all([
-        api.data<Demand[]>('/api/demands?limit=100'),
-        api.data<Listing[]>('/api/listings?limit=100'),
+        api.data<Demand[]>('/api/demands?limit=300&status=DRAFT,OPEN,PARTIAL,FULFILLED,CANCELLED'),
+        api.data<Listing[]>('/api/listings?limit=300&status=ACTIVE,SOLD_OUT'),
       ])
       this.demands = demands || []
       this.listings = listings || []
