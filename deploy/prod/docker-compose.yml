@@ -40,6 +40,10 @@ services:
       WA_SESSION: ${WA_SESSION:-default}
       WA_API_KEY: ${WA_API_KEY:-}
       WA_GROUP_CHAT_ID: ${WA_GROUP_CHAT_ID:-120363428225078710@g.us}
+      # Gateway pembayaran Mayar (sandbox default) + URL frontend utk redirect
+      MAYAR_BASE_URL: ${MAYAR_BASE_URL:-https://api.mayar.club/hl/v1}
+      MAYAR_API_KEY: ${MAYAR_API_KEY:-}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-https://budes.yum-dev.com}
     expose:
       - "8080"
 

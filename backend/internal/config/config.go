@@ -12,9 +12,20 @@ type Config struct {
 	Port      string // port HTTP API
 	AppDSN    string // App DB (writable) — transaksional
 	RefDSN    string // Reference DB (read-only) — dataset KDMP
-	JWTSecret string // kunci penandatangan JWT (HS256)
-	WA        WAConfig
+	JWTSecret   string // kunci penandatangan JWT (HS256)
+	FrontendURL string // base URL frontend (untuk redirect pembayaran)
+	WA          WAConfig
+	Mayar       MayarConfig
 }
+
+// MayarConfig = konfigurasi gateway pembayaran Mayar.
+type MayarConfig struct {
+	BaseURL string // mis. https://api.mayar.club/hl/v1 (sandbox)
+	APIKey  string // RAHASIA — hanya dari env
+}
+
+// Enabled: gateway aktif bila API key terisi.
+func (m MayarConfig) Enabled() bool { return m.APIKey != "" }
 
 // WAConfig = konfigurasi gateway notifikasi WhatsApp (OpenWA).
 type WAConfig struct {
@@ -34,7 +45,12 @@ func Load() Config {
 		Port:      getenv("PORT", "8080"),
 		AppDSN:    getenv("APP_DATABASE_URL", "postgres://budes:budes@localhost:5434/budes_app"),
 		RefDSN:    getenv("REF_DATABASE_URL", "postgres://budes:budes@localhost:5433/hackathon_2026"),
-		JWTSecret: getenv("JWT_SECRET", "budes-dev-secret-change-me"),
+		JWTSecret:   getenv("JWT_SECRET", "budes-dev-secret-change-me"),
+		FrontendURL: strings.TrimRight(getenv("FRONTEND_BASE_URL", "https://budes.yum-dev.com"), "/"),
+		Mayar: MayarConfig{
+			BaseURL: strings.TrimRight(getenv("MAYAR_BASE_URL", "https://api.mayar.club/hl/v1"), "/"),
+			APIKey:  getenv("MAYAR_API_KEY", ""),
+		},
 		WA: WAConfig{
 			BaseURL:     strings.TrimRight(getenv("WA_BASE_URL", ""), "/"), // buang trailing slash
 			Session:     getenv("WA_SESSION", "default"),

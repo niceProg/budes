@@ -76,8 +76,8 @@ const draftDp = computed(() => (draft.value ? fmtRp(draft.value.total * draft.va
           :class="app.dpMethod === 'TRANSFER' ? 'border-clay-600 bg-clay-50' : 'border-sand-350 bg-white'"
           @click="app.dpMethod = 'TRANSFER'"
         >
-          <div class="mb-0.5 text-sm font-extrabold">Transfer Bank</div>
-          <div class="text-xs text-sand-700">Ke rekening koperasi desa</div>
+          <div class="mb-0.5 text-sm font-extrabold">Transfer / Online</div>
+          <div class="text-xs text-sand-700">Bayar aman via Mayar</div>
         </button>
         <button
           class="min-w-[150px] flex-1 cursor-pointer rounded-xl border-2 p-3.5 text-left transition"
@@ -88,9 +88,17 @@ const draftDp = computed(() => (draft.value ? fmtRp(draft.value.total * draft.va
           <div class="text-xs text-sand-700">Setor langsung di koperasi</div>
         </button>
       </div>
-      <p class="mb-4 text-xs leading-relaxed text-sand-600">Pembayaran dilakukan di luar aplikasi. Konfirmasi di bawah setelah DP dibayar.</p>
+      <p class="mb-4 text-xs leading-relaxed text-sand-600">
+        {{ app.dpMethod === 'TRANSFER'
+          ? 'Kamu akan diarahkan ke halaman pembayaran Mayar. Status DP terupdate otomatis setelah lunas.'
+          : 'Pembayaran tunai dilakukan di luar aplikasi. Konfirmasi di bawah setelah DP disetor.' }}
+      </p>
       <div class="flex flex-wrap gap-2.5">
-        <button class="btn-primary min-w-[170px] flex-1 py-3.5" @click="app.confirmDp()">Konfirmasi DP Terbayar</button>
+        <button
+          class="btn-primary min-w-[170px] flex-1 py-3.5"
+          :disabled="app.busy"
+          @click="app.dpMethod === 'TRANSFER' ? app.payDpMayar() : app.confirmDp()"
+        >{{ app.busy ? 'Memproses…' : (app.dpMethod === 'TRANSFER' ? 'Bayar via Mayar' : 'Konfirmasi DP Terbayar') }}</button>
         <button class="btn-soft px-[18px] py-3.5 text-[13.5px]" @click="app.saveDraft()">Nanti saja</button>
       </div>
     </div>

@@ -740,6 +740,34 @@ export const useApp = defineStore('app', {
       navigateTo(routeFor('saya'))
       this.showToast('Disimpan sebagai draf — bayar DP kapan saja dari Aktivitasku.')
     },
+    // Bayar DP via Mayar (redirect ke halaman bayar). Fallback ke CASH bila gateway/mock off.
+    async payDpMayar() {
+      const draftId = this.buatDraft
+      if (!draftId) return
+      const api = useApi()
+      if (!api.enabled) return this.confirmDp()
+      this.busy = true
+      try {
+        const res: any = await api.data(`/api/demands/${draftId}/dp/pay`, { method: 'POST' })
+        if (res?.link) { window.location.href = res.link; return }
+        this.showToast('Gagal membuat pembayaran.')
+      } catch (e) {
+        this.showToast(errMsg(e))
+      } finally { this.busy = false }
+    },
+    // Bayar/pelunasan transaksi via Mayar (redirect). kind: 'demand' | 'supply'.
+    async payTxnMayar(kind: 'demand' | 'supply', id: string) {
+      const api = useApi()
+      if (!api.enabled) { this.showToast('Pembayaran online butuh koneksi API.'); return }
+      this.busy = true
+      try {
+        const res: any = await api.data(`/api/transactions/${kind}/${id}/pay`, { method: 'POST' })
+        if (res?.link) { window.location.href = res.link; return }
+        this.showToast('Gagal membuat pembayaran.')
+      } catch (e) {
+        this.showToast(errMsg(e))
+      } finally { this.busy = false }
+    },
 
     // ---- titip komoditas ----
     async submitTitip() {

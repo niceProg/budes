@@ -13,6 +13,7 @@ import (
 	"budes/internal/health"
 	"budes/internal/match"
 	"budes/internal/notify"
+	"budes/internal/payment"
 	"budes/internal/reference"
 	"budes/internal/riwayat"
 	"budes/internal/settings"
@@ -87,6 +88,13 @@ func New(pools *db.Pools, cfg config.Config, notifier *notify.Notifier) http.Han
 	mux.Handle("GET /api/pembukuan", role(stH.Pembukuan, "ADMIN_KOPERASI"))
 	mux.Handle("GET /api/disputes", role(stH.ListDisputes, "ADMIN_KOPERASI"))
 	mux.Handle("PUT /api/disputes/{id}", role(stH.ResolveDispute, "ADMIN_KOPERASI"))
+
+	// --- Pembayaran (gateway Mayar): DP demand & pelunasan transaksi ---
+	mayar := payment.NewMayar(cfg.Mayar.BaseURL, cfg.Mayar.APIKey)
+	payH := payment.NewHandler(mayar, payment.NewRepository(pools.App), demandRepo, settleRepo, notifier, cfg.FrontendURL)
+	mux.Handle("POST /api/demands/{id}/dp/pay", role(payH.PayDP, "BUYER"))
+	mux.Handle("POST /api/transactions/{kind}/{id}/pay", role(payH.PayTxn, "BUYER"))
+	mux.HandleFunc("POST /api/webhooks/mayar", payH.Webhook) // publik (webhook Mayar)
 
 	// --- Verifikasi KYC (Modul A) ---
 	vH := verification.NewHandler(verification.NewRepository(pools.App), notifier)

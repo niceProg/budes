@@ -39,6 +39,11 @@ const myPledges = computed(() =>
 const myListings = computed(() =>
   app.listings.filter((l) => l.owner === uid.value).map((l) => decorateListing(l)),
 )
+const myTxns = computed(() =>
+  app.txns
+    .filter((t) => t.pay === 'UNPAID')
+    .map((t) => ({ ...t, grossTxt: fmtRp(t.gross), kindLabel: t.kind === 'demand' ? 'Permintaan' : 'Etalase' })),
+)
 </script>
 
 <template>
@@ -81,6 +86,21 @@ const myListings = computed(() =>
         <p v-else class="text-[13px] text-sand-700">
           Belum ada pesanan. <NuxtLink to="/etalase" class="link">Jelajahi etalase →</NuxtLink>
         </p>
+      </section>
+
+      <section v-if="myTxns.length" class="card mb-4 p-[22px]">
+        <h3 class="mb-1 text-[15.5px] font-extrabold">Pembayaran</h3>
+        <p class="mb-3.5 text-xs text-sand-600">Selesaikan pelunasan transaksi via Mayar.</p>
+        <div class="flex flex-col gap-2.5">
+          <div v-for="t in myTxns" :key="t.id" class="flex flex-wrap items-center gap-3 rounded-xl border border-sand-200 px-[15px] py-3">
+            <div class="min-w-[170px] flex-1">
+              <div class="text-[13.5px] font-bold">{{ t.item }}</div>
+              <div class="text-xs text-sand-700">{{ t.kindLabel }} · {{ t.grossTxt }}</div>
+            </div>
+            <span class="badge bg-warning-50 text-warning-700">Belum dibayar</span>
+            <button class="btn-success rounded-[9px] px-3 py-[7px] text-[11.5px]" :disabled="app.busy" @click="app.payTxnMayar(t.kind, t.id)">Bayar via Mayar</button>
+          </div>
+        </div>
       </section>
     </template>
 
