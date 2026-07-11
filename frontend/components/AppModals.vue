@@ -15,8 +15,14 @@ const listing = computed(() => {
   const l = app.listings.find((x) => x.id === (app.activeListingId || route.params.id)) || app.listings[0]
   return decorateListing(l)
 })
+const cfg = useRuntimeConfig()
 const kyc = computed(() => app.kyc.find((k) => k.id === app.activeKycId) || null)
 const ktpValid = computed(() => /\.(jpe?g|png)$/i.test(kyc.value?.ktpFile || ''))
+// URL gambar KTP asli bila berupa berkas terunggah (/uploads/...).
+const ktpSrc = computed(() => {
+  const f = kyc.value?.ktpFile || ''
+  return f.startsWith('/uploads/') ? (cfg.public.apiBase as string) + f : ''
+})
 const showNik = ref(false)
 const nikDisplay = computed(() => {
   const n = kyc.value?.nik || ''
@@ -205,20 +211,30 @@ function goMasuk(tab: 'masuk' | 'daftar') {
             <span v-if="ktpValid" class="rounded-full bg-success-100 px-2 py-0.5 text-[10.5px] font-bold text-success-700">Format JPG/PNG/JPEG ✓</span>
             <span v-else class="rounded-full bg-rose-100 px-2 py-0.5 text-[10.5px] font-bold text-rose-700">Format tidak didukung</span>
           </div>
-          <div class="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-sand-400 bg-sand-100 py-7 text-sand-600">
+          <a v-if="ktpSrc" :href="ktpSrc" target="_blank" class="block overflow-hidden rounded-xl border border-sand-300">
+            <img :src="ktpSrc" alt="Foto KTP" class="max-h-56 w-full bg-sand-100 object-contain" />
+          </a>
+          <div v-else class="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-sand-400 bg-sand-100 py-7 text-sand-600">
             <span class="text-4xl">🪪</span>
-            <span class="text-[12.5px] font-bold text-sand-800">{{ kyc.ktpFile }}</span>
+            <span class="text-[12.5px] font-bold text-sand-800">{{ kyc.ktpFile || '(tanpa berkas)' }}</span>
             <span class="text-[11px]">Pratinjau foto KTP anggota</span>
           </div>
         </div>
 
-        <div class="flex gap-2.5">
-          <button class="btn-success flex-1" @click="app.kycAct(kyc.id, true)">Verifikasi</button>
+        <div v-if="kyc.status === 'PENDING'" class="flex gap-2.5">
+          <button class="btn-success flex-1" :disabled="app.busy" @click="app.kycAct(kyc.id, true)">Verifikasi</button>
           <button
             class="cursor-pointer rounded-[10px] border-[1.5px] border-rose-200 bg-white px-4 font-bold text-rose-700 transition hover:bg-rose-50"
+            :disabled="app.busy"
             @click="app.kycAct(kyc.id, false)"
           >Tolak</button>
           <button class="btn-ghost" @click="app.closeModal()">Tutup</button>
+        </div>
+        <div v-else class="flex items-center gap-2.5">
+          <div class="flex-1 text-[12.5px] font-bold" :class="kyc.status === 'VERIFIED' ? 'text-success-700' : 'text-rose-700'">
+            {{ kyc.status === 'VERIFIED' ? '✓ Sudah diverifikasi' : '✕ Sudah ditolak' }} — keputusan final.
+          </div>
+          <button class="btn-primary px-5" @click="app.closeModal()">Tutup</button>
         </div>
       </div>
     </div>

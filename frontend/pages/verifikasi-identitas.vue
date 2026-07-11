@@ -2,13 +2,23 @@
 import { useApp } from '~/stores/app'
 const app = useApp()
 
-// Hanya untuk user login non-admin (admin punya panel tinjauan sendiri).
+// Hanya untuk user login non-admin. Segarkan status terbaru saat dibuka.
 onMounted(() => {
-  if (!app.isLoggedIn) navigateTo('/masuk')
-  else if (app.isAdmin) navigateTo('/verifikasi')
+  if (!app.isLoggedIn) return navigateTo('/masuk')
+  if (app.isAdmin) return navigateTo('/verifikasi')
+  app.refreshMe()
 })
 
 const verified = computed(() => app.user?.ver === 'VERIFIED')
+const rejected = computed(() => app.user?.ver === 'REJECTED')
+const decided = computed(() => verified.value || rejected.value)
+
+const ktpUploaded = computed(() => !!app.kycForm.ktpFile)
+
+function onFile(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (file) app.uploadKtp(file)
+}
 </script>
 
 <template>
@@ -21,47 +31,46 @@ const verified = computed(() => app.user?.ver === 'VERIFIED')
     <!-- status saat ini -->
     <div
       class="mb-5 flex items-center gap-3 rounded-xl border p-4"
-      :class="verified ? 'border-success-200 bg-success-50' : 'border-warning-200 bg-warning-50'"
+      :class="verified ? 'border-success-200 bg-success-50' : rejected ? 'border-rose-200 bg-rose-50' : 'border-warning-200 bg-warning-50'"
     >
-      <span class="text-2xl">{{ verified ? '✅' : '⏳' }}</span>
+      <span class="text-2xl">{{ verified ? '✅' : rejected ? '❌' : '⏳' }}</span>
       <div>
-        <div class="text-[14px] font-extrabold" :class="verified ? 'text-success-700' : 'text-warning-800'">
-          {{ verified ? 'Identitas terverifikasi' : 'Belum terverifikasi' }}
+        <div class="text-[14px] font-extrabold" :class="verified ? 'text-success-700' : rejected ? 'text-rose-700' : 'text-warning-800'">
+          {{ verified ? 'Identitas terverifikasi' : rejected ? 'Pengajuan ditolak' : 'Belum terverifikasi' }}
         </div>
         <div class="text-[12.5px] text-sand-700">
-          {{ verified ? 'Akunmu sudah tepercaya.' : 'Kirim pengajuan di bawah untuk ditinjau koperasi.' }}
+          {{ verified ? 'Akunmu sudah tepercaya.' : rejected ? 'Pengajuanmu ditolak koperasi. Silakan hubungi admin.' : 'Kirim pengajuan di bawah untuk ditinjau koperasi.' }}
         </div>
       </div>
     </div>
 
-    <section class="card p-6">
+    <!-- form pengajuan (hanya bila belum diputuskan admin) -->
+    <section v-if="!decided" class="card p-6">
       <div class="mb-3.5">
         <label class="field-label">NIK (16 digit)</label>
-        <input
-          v-model="app.kycForm.nik"
-          inputmode="numeric"
-          maxlength="16"
-          placeholder="3402xxxxxxxxxxxx"
-          class="field-input font-mono"
-        />
-      </div>
-      <div class="mb-3.5">
-        <label class="field-label">Berkas foto KTP (nama file)</label>
-        <input v-model="app.kycForm.ktpFile" type="text" placeholder="ktp-nama.jpg" class="field-input" />
-        <p class="mt-1 text-[11.5px] text-sand-600">Format JPG/PNG/JPEG. (Unggah berkas nyata menyusul.)</p>
+        <input v-model="app.kycForm.nik" inputmode="numeric" maxlength="16" placeholder="3402xxxxxxxxxxxx" class="field-input font-mono" />
       </div>
       <div class="mb-4">
-        <label class="field-label">Dokumen pendukung (opsional)</label>
-        <input v-model="app.kycForm.doc" type="text" placeholder="mis. Kartu Keluarga / Surat domisili" class="field-input" />
+        <label class="field-label">Foto KTP (JPG / JPEG / PNG)</label>
+        <input
+          type="file"
+          accept="image/png,image/jpeg,.jpg,.jpeg,.png"
+          class="block w-full cursor-pointer rounded-xl border-[1.5px] border-sand-300 text-[13px] text-sand-700 file:mr-3 file:cursor-pointer file:border-0 file:bg-clay-600 file:px-4 file:py-2.5 file:text-[12.5px] file:font-bold file:text-white hover:file:bg-clay-700"
+          @change="onFile"
+        />
+        <p v-if="ktpUploaded" class="mt-1.5 text-[12px] font-bold text-success-700">✓ Foto KTP terunggah</p>
+        <p v-else class="mt-1.5 text-[11.5px] text-sand-600">Maks 5 MB. Pastikan foto jelas & terbaca.</p>
       </div>
 
       <div v-if="app.kycErr" class="mb-3 text-[12.5px] font-bold text-clay-800">{{ app.kycErr }}</div>
 
-      <button
-        class="btn-primary btn-block py-3.5"
-        :disabled="app.busy"
-        @click="app.submitKyc()"
-      >{{ app.busy ? 'Mengirim…' : 'Kirim Pengajuan Verifikasi' }}</button>
+      <button class="btn-primary btn-block py-3.5" :disabled="app.busy" @click="app.submitKyc()">
+        {{ app.busy ? 'Mengirim…' : 'Kirim Pengajuan Verifikasi' }}
+      </button>
     </section>
+
+    <div v-else class="card p-6 text-center text-[13px] text-sand-700">
+      Status verifikasimu sudah final. Kamu tak perlu mengirim pengajuan lagi.
+    </div>
   </div>
 </template>

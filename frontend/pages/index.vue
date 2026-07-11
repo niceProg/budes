@@ -29,6 +29,13 @@ const sorot = computed(() => {
 })
 const gridList = computed(() => pasarList.value.filter((d) => d.id !== sorot.value?.id))
 
+// Permintaan milik pembeli yang DP-nya belum dibayar (masih DRAFT).
+const unpaidDpDemands = computed(() =>
+  app.isBuyer
+    ? app.demands.filter((d) => d.owner === (app.user?.id ?? '') && d.status === 'DRAFT' && d.dp !== 'PAID')
+    : [],
+)
+
 // Angka nyata dari backend (GET /api/stats); '—' selama belum termuat.
 const stats = computed(() => {
   const s = app.stats
@@ -147,6 +154,16 @@ const pilar = [
           </div>
         </div>
       </template>
+
+      <!-- Alert: DP belum dibayar (pembeli) -->
+      <div v-if="unpaidDpDemands.length" class="mt-8 flex flex-wrap items-center gap-3 rounded-xl border border-warning-200 bg-warning-50 px-5 py-3.5">
+        <span class="text-xl">⏳</span>
+        <div class="min-w-0 flex-1">
+          <div class="text-[13.5px] font-extrabold text-warning-800">{{ unpaidDpDemands.length }} permintaanmu menunggu pembayaran DP</div>
+          <div class="text-[12.5px] text-warning-700">Bayar uang muka agar permintaan tampil publik & bisa disanggupi warga desa.</div>
+        </div>
+        <NuxtLink to="/aktivitas" class="btn-primary shrink-0 px-4 py-2 text-[12.5px]">Bayar DP →</NuxtLink>
+      </div>
 
       <!-- PERMINTAAN PEMBELI -->
       <div class="section-title" :class="app.isAdmin ? 'mt-6' : 'mt-20'">

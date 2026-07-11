@@ -8,7 +8,7 @@ export interface User {
   id: string
   name: string
   role: Role
-  ver: 'VERIFIED' | 'PENDING'
+  ver: 'VERIFIED' | 'PENDING' | 'REJECTED'
 }
 interface PledgeRow {
   id: string
@@ -101,7 +101,12 @@ function mapUser(u: any): User {
     id: u.id,
     name: u.name,
     role: u.role as Role,
-    ver: u.verification_status === 'VERIFIED' ? 'VERIFIED' : 'PENDING',
+    ver:
+      u.verification_status === 'VERIFIED'
+        ? 'VERIFIED'
+        : u.verification_status === 'REJECTED'
+          ? 'REJECTED'
+          : 'PENDING',
   }
 }
 
@@ -255,7 +260,13 @@ export const useApp = defineStore('app', {
     userInitial: (s) => (s.user ? initial(s.user.name) : ''),
     userRoleLabel: (s) => (s.user ? ROLE_LABEL[s.user.role] : ''),
     userVerLabel: (s) =>
-      s.user ? (s.user.ver === 'VERIFIED' ? 'Terverifikasi ✓' : 'Menunggu verifikasi') : '',
+      s.user
+        ? s.user.ver === 'VERIFIED'
+          ? 'Terverifikasi ✓'
+          : s.user.ver === 'REJECTED'
+            ? 'Ditolak'
+            : 'Menunggu verifikasi'
+        : '',
   },
 
   actions: {
@@ -795,9 +806,9 @@ export const useApp = defineStore('app', {
       navigateTo(routeFor('saya'))
       this.showToast('Disimpan sebagai draf — bayar DP kapan saja dari Aktivitasku.')
     },
-    // Bayar DP via Mayar (redirect ke halaman bayar). Fallback ke CASH bila gateway/mock off.
-    async payDpMayar() {
-      const draftId = this.buatDraft
+    // Bayar DP via Mayar (redirect ke halaman bayar). demandId opsional (default draft aktif).
+    async payDpMayar(demandId?: string) {
+      const draftId = demandId || this.buatDraft
       if (!draftId) return
       const api = useApi()
       if (!api.enabled) return this.confirmDp()
@@ -967,12 +978,45 @@ export const useApp = defineStore('app', {
       this.activeKycId = id
       this.modal = 'kycView'
     },
+    // Segarkan data user (status verifikasi) dari /api/me.
+    async refreshMe() {
+      const api = useApi()
+      if (!api.enabled || !api.token.value) return
+      try { this.user = mapUser(await api.data('/api/me')) } catch { /* biarkan */ }
+    },
+    // Unggah foto KTP (hanya JPG/JPEG/PNG) → simpan URL ke kycForm.ktpFile.
+    async uploadKtp(file: File): Promise<boolean> {
+      const api = useApi()
+      if (!['image/jpeg', 'image/png'].includes(file.type) && !/\.(jpe?g|png)$/i.test(file.name)) {
+        this.kycErr = 'Format tak didukung — pilih JPG / JPEG / PNG.'
+        return false
+      }
+      if (!api.enabled) { this.kycForm.ktpFile = file.name; this.kycErr = ''; return true }
+      this.busy = true
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res: any = await api.data('/api/upload', { method: 'POST', body: fd })
+        this.kycForm.ktpFile = res.url
+        this.kycErr = ''
+        return true
+      } catch (e) {
+        this.kycErr = errMsg(e)
+        return false
+      } finally {
+        this.busy = false
+      }
+    },
     // Pengajuan KYC dari sisi user (warga/pembeli).
     async submitKyc() {
       const f = this.kycForm
       const nik = f.nik.trim()
       if (!/^\d{16}$/.test(nik)) {
         this.kycErr = 'NIK harus 16 digit angka.'
+        return
+      }
+      if (!f.ktpFile) {
+        this.kycErr = 'Unggah foto KTP dulu (JPG / JPEG / PNG).'
         return
       }
       const api = useApi()
@@ -987,11 +1031,7 @@ export const useApp = defineStore('app', {
       try {
         await api.req('/api/verifikasi', {
           method: 'POST',
-          body: {
-            nik,
-            id_card_file: f.ktpFile.trim() || null,
-            support_doc_file: f.doc.trim() || null,
-          },
+          body: { nik, id_card_file: f.ktpFile, support_doc_file: null },
         })
         if (this.user) this.user.ver = 'PENDING'
         this.kycForm = { nik: '', ktpFile: '', doc: '' }

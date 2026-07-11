@@ -85,20 +85,6 @@ const pledges = computed(() =>
           </p>
           <button class="btn-primary btn-block py-3.5 text-[14.5px]" @click="app.ctaPledge(det.id)">Sanggupi Permintaan</button>
         </div>
-
-        <div class="card p-6">
-          <h3 class="mb-3 text-[15px] font-extrabold">Koperasi berpotensi memenuhi</h3>
-          <div v-if="det.kandidat.length" class="flex flex-col gap-2">
-            <div v-for="(k, i) in det.kandidat" :key="i" class="rounded-[11px] border border-sand-200 px-3.5 py-2.5">
-              <div class="text-[13px] font-bold">{{ k.name }}</div>
-              <div class="text-[11.5px] text-sand-700">{{ k.note }}</div>
-            </div>
-          </div>
-          <template v-else>
-            <p class="mb-3 text-[13px] text-sand-700">Belum ada koperasi yang cocok dengan komoditas ini.</p>
-            <button v-if="!app.isAdmin" class="btn-soft btn-block py-2.5 text-[13px]" @click="app.showToast('Siap! Kami kabari bila ada koperasi yang cocok.')">Kabari saya bila ada</button>
-          </template>
-        </div>
       </div>
     </div>
   </div>

@@ -16,6 +16,7 @@ import (
 	"budes/internal/payment"
 	"budes/internal/reference"
 	"budes/internal/riwayat"
+	"budes/internal/upload"
 	"budes/internal/settings"
 	"budes/internal/settlement"
 	"budes/internal/supply"
@@ -97,6 +98,11 @@ func New(pools *db.Pools, cfg config.Config, notifier *notify.Notifier) http.Han
 	mux.Handle("POST /api/demands/{id}/dp/pay", role(payH.PayDP, "BUYER"))
 	mux.Handle("POST /api/transactions/{kind}/{id}/pay", role(payH.PayTxn, "BUYER"))
 	mux.HandleFunc("POST /api/webhooks/mayar", payH.Webhook) // publik (webhook Mayar)
+
+	// --- Unggah berkas (foto KTP) ---
+	uploadH := upload.NewHandler(cfg.UploadDir)
+	mux.Handle("POST /api/upload", auth1(uploadH.Upload))
+	mux.Handle("GET /uploads/", uploadH.Serve()) // publik (berkas statis)
 
 	// --- Verifikasi KYC (Modul A) ---
 	vH := verification.NewHandler(verification.NewRepository(pools.App), notifier)

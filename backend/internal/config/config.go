@@ -14,6 +14,7 @@ type Config struct {
 	RefDSN    string // Reference DB (read-only) — dataset KDMP
 	JWTSecret   string // kunci penandatangan JWT (HS256)
 	FrontendURL string // base URL frontend (untuk redirect pembayaran)
+	UploadDir   string // direktori penyimpanan berkas unggahan (KTP)
 	WA          WAConfig
 	Mayar       MayarConfig
 }
@@ -47,6 +48,7 @@ func Load() Config {
 		RefDSN:    getenv("REF_DATABASE_URL", "postgres://budes:budes@localhost:5433/hackathon_2026"),
 		JWTSecret:   getenv("JWT_SECRET", "budes-dev-secret-change-me"),
 		FrontendURL: strings.TrimRight(getenv("FRONTEND_BASE_URL", "https://budes.yum-dev.com"), "/"),
+		UploadDir:   getenv("UPLOAD_DIR", "/app/uploads"),
 		Mayar: MayarConfig{
 			BaseURL: strings.TrimRight(getenv("MAYAR_BASE_URL", "https://api.mayar.club/hl/v1"), "/"),
 			APIKey:  getenv("MAYAR_API_KEY", ""),

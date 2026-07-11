@@ -44,8 +44,11 @@ services:
       MAYAR_BASE_URL: ${MAYAR_BASE_URL:-https://api.mayar.club/hl/v1}
       MAYAR_API_KEY: ${MAYAR_API_KEY:-}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-https://budes.yum-dev.com}
+      UPLOAD_DIR: /app/uploads
     expose:
       - "8080"
+    volumes:
+      - budes_uploads:/app/uploads
 
   frontend:
     build:
@@ -79,3 +82,4 @@ volumes:
   app_db_data:
   caddy_data:
   caddy_config:
+  budes_uploads:

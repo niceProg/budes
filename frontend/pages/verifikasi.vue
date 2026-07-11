@@ -3,7 +3,8 @@ import { useApp } from '~/stores/app'
 import { KYC_BADGE, badge } from '~/utils/badges'
 const app = useApp()
 onMounted(() => {
-  if (!app.isAdmin) navigateTo('/')
+  if (!app.isAdmin) return navigateTo('/')
+  app.hydrateKyc() // muat ulang pengajuan terbaru agar sinkron
 })
 
 const filter = ref<'ALL' | 'WARGA' | 'BUYER'>('ALL')

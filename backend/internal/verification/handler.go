@@ -66,6 +66,10 @@ func (h *Handler) Review(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusNotFound, err.Error())
 		return
 	}
+	if errors.Is(err, ErrAlreadyDecided) {
+		httpx.Error(w, http.StatusConflict, err.Error())
+		return
+	}
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return

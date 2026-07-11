@@ -9,8 +9,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// ErrNotFound saat pengajuan tidak ada.
-var ErrNotFound = errors.New("pengajuan verifikasi tidak ditemukan")
+// Kesalahan domain.
+var (
+	ErrNotFound       = errors.New("pengajuan verifikasi tidak ditemukan")
+	ErrAlreadyDecided = errors.New("pengajuan sudah diputuskan (final), tak bisa diubah")
+)
 
 // Verification merepresentasikan baris verifications (+ nama pengaju).
 type Verification struct {
@@ -83,15 +86,18 @@ func (r *Repository) Review(ctx context.Context, id, reviewerID, decision string
 	}
 	defer tx.Rollback(ctx)
 
-	var userID string
+	var userID, curStatus string
 	var phone *string
-	err = tx.QueryRow(ctx, `SELECT v.user_id::text, u.phone
-		FROM verifications v JOIN users u ON u.id = v.user_id WHERE v.id=$1 FOR UPDATE OF v`, id).Scan(&userID, &phone)
+	err = tx.QueryRow(ctx, `SELECT v.user_id::text, v.status, u.phone
+		FROM verifications v JOIN users u ON u.id = v.user_id WHERE v.id=$1 FOR UPDATE OF v`, id).Scan(&userID, &curStatus, &phone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, err
+	}
+	if curStatus != "PENDING" {
+		return nil, ErrAlreadyDecided // keputusan sudah final
 	}
 	if _, err := tx.Exec(ctx, `UPDATE verifications SET status=$2, reviewed_by=$3, review_note=$4, reviewed_at=now(), user_update=$5 WHERE id=$1`,
 		id, decision, reviewerID, note, reviewerID); err != nil {

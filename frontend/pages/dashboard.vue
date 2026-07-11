@@ -4,7 +4,11 @@ import { PAY_BADGE, badge } from '~/utils/badges'
 
 const app = useApp()
 onMounted(() => {
-  if (!app.isAdmin) navigateTo('/')
+  if (!app.isAdmin) return navigateTo('/')
+  // Muat ulang data admin agar dashboard tak pernah kosong (mis. sesi lama / hydrate terlewat).
+  app.hydratePembukuan()
+  app.hydrateInsights()
+  app.refreshUser()
 })
 
 const NEXT: Record<string, [string, string]> = {

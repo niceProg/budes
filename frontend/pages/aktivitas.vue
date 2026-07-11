@@ -13,7 +13,11 @@ const uid = computed(() => app.user?.id ?? '__none')
 const myDemands = computed(() =>
   app.demands
     .filter((d) => d.owner === uid.value)
-    .map((d) => ({ ...decorateDemand(d), canCancel: ['DRAFT', 'OPEN', 'PARTIAL'].includes(d.status) })),
+    .map((d) => ({
+      ...decorateDemand(d),
+      canCancel: ['DRAFT', 'OPEN', 'PARTIAL'].includes(d.status),
+      canPayDp: d.status === 'DRAFT' && d.dp !== 'PAID',
+    })),
 )
 const myOrders = computed(() =>
   app.orders
@@ -62,6 +66,7 @@ const myTxns = computed(() =>
               <div class="text-xs text-sand-700">{{ d.qtyLine }} · DP {{ d.dpStatusShort }}</div>
             </NuxtLink>
             <StatusBadge :badge="d.badge" />
+            <button v-if="d.canPayDp" class="btn-success rounded-[9px] px-3 py-[7px] text-[11.5px]" :disabled="app.busy" @click="app.payDpMayar(d.id)">Bayar DP</button>
             <button v-if="d.canCancel" class="btn-cancel" @click="app.cancelDemand(d.id)">Batalkan</button>
           </div>
         </div>

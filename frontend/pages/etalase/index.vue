@@ -44,8 +44,6 @@ const rows = computed(() => {
             <td class="px-4 py-3">
               <div class="flex items-center justify-center gap-1.5">
                 <button class="act act-view" @click="app.viewListing(l.id)">Lihat</button>
-                <button v-if="app.isAdmin || app.isWarga" class="act act-edit" @click="app.startEditListing(l.id)">Edit</button>
-                <button v-if="app.isAdmin || app.isWarga" class="act act-del" @click="app.deleteListing(l.id)">Hapus</button>
               </div>
             </td>
           </tr>
