@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -38,10 +39,23 @@ func (r *Repository) UserContact(ctx context.Context, userID string) (name, emai
 	if ph != nil {
 		phone = *ph
 	}
-	if phone == "" {
-		phone = "08000000000" // Mayar mewajibkan mobile
-	}
+	phone = sanitizeMobile(phone) // Mayar wajib mobile ≥ 10 digit
 	return
+}
+
+// sanitizeMobile menyaring hanya digit & memastikan panjang ≥ 10 (fallback default).
+func sanitizeMobile(s string) string {
+	var b strings.Builder
+	for _, c := range s {
+		if c >= '0' && c <= '9' {
+			b.WriteRune(c)
+		}
+	}
+	d := b.String()
+	if len(d) < 10 {
+		return "08000000000"
+	}
+	return d
 }
 
 // DemandForDP memvalidasi & mengambil info DP demand milik pembeli (harus DRAFT/UNPAID).

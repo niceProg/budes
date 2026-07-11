@@ -78,7 +78,7 @@ const pledges = computed(() =>
           </div>
         </div>
 
-        <div v-if="!app.isAdmin" class="card p-6">
+        <div v-if="!app.isBuyer && !app.isAdmin" class="card p-6">
           <h3 class="mb-1.5 text-base font-extrabold">Punya hasil panen ini?</h3>
           <p class="mb-4 text-[13px] leading-relaxed text-sand-700">
             Sanggupi sebagian atau seluruhnya — sisa kebutuhan {{ det.sisaKuotaTxt }}.
